@@ -55,7 +55,7 @@ Three.js 驱动的沉浸式 3D 空间，每种风格拥有独特的艺术装置�
 
 ### 在线访问
 
-直接打开 GitHub Pages 即可体验。
+**[https://realityerror.github.io/style-universe/](https://realityerror.github.io/style-universe/)**
 
 ### 本地运行
 
