@@ -1,0 +1,722 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>风格宇宙 · 后台管理</title>
+  <link href="https://fonts.googleapis.com/css2?family=Noto+Sans+SC:wght@300;400;700;900&family=Orbitron:wght@700&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --bg: #0b0b10;
+      --surface: #14141c;
+      --surface2: #1c1c28;
+      --border: #2a2a3a;
+      --text: #e0e0e0;
+      --text2: #808090;
+      --accent: #7c5cff;
+    }
+    * { margin:0; padding:0; box-sizing:border-box; }
+    body { background:var(--bg); color:var(--text); font-family:'Noto Sans SC',sans-serif; min-height:100vh; }
+
+    /* 顶部导航 */
+    .topbar {
+      position:sticky; top:0; z-index:100;
+      display:flex; align-items:center; gap:20px;
+      padding:16px 30px;
+      background:rgba(11,11,16,0.9); backdrop-filter:blur(20px);
+      border-bottom:1px solid var(--border);
+    }
+    .topbar h1 { font-size:20px; font-weight:900; letter-spacing:2px; }
+    .topbar .stats { display:flex; gap:20px; margin-left:auto; font-size:13px; color:var(--text2); }
+    .topbar .stat-val { font-size:18px; font-weight:700; color:#fff; font-family:'Orbitron',sans-serif; }
+    .topbar a { color:var(--text2); text-decoration:none; font-size:13px; transition:color 0.3s; }
+    .topbar a:hover { color:#fff; }
+
+    /* 主体 */
+    .main { display:flex; min-height:calc(100vh - 57px); }
+
+    /* 侧栏筛选 */
+    .sidebar {
+      width:240px; min-width:240px;
+      padding:20px;
+      background:var(--surface);
+      border-right:1px solid var(--border);
+      overflow-y:auto;
+    }
+    .sidebar h3 { font-size:12px; text-transform:uppercase; letter-spacing:2px; color:var(--text2); margin-bottom:12px; }
+    .filter-group { margin-bottom:24px; }
+    .filter-btn {
+      display:flex; align-items:center; gap:8px;
+      width:100%; padding:10px 14px;
+      background:transparent; border:1px solid transparent;
+      border-radius:8px; color:var(--text); font-size:13px;
+      cursor:pointer; transition:all 0.2s; text-align:left;
+    }
+    .filter-btn:hover { background:var(--surface2); }
+    .filter-btn.active { background:var(--surface2); border-color:var(--accent); color:#fff; }
+    .filter-btn .count {
+      margin-left:auto;
+      background:var(--surface2); padding:2px 8px; border-radius:10px;
+      font-size:11px; color:var(--text2);
+    }
+    .filter-btn.active .count { background:var(--accent); color:#fff; }
+    .rarity-dot {
+      width:10px; height:10px; border-radius:50%; flex-shrink:0;
+    }
+    .rarity-dot.ssr { background:linear-gradient(135deg,#ffd700,#ff6b00); box-shadow:0 0 6px #ffd700; }
+    .rarity-dot.sr { background:linear-gradient(135deg,#c084fc,#a855f7); box-shadow:0 0 6px #a855f7; }
+    .rarity-dot.r { background:linear-gradient(135deg,#60a5fa,#3b82f6); }
+    .rarity-dot.n { background:#666; }
+
+    /* 搜索 */
+    .search-box {
+      width:100%; padding:10px 14px;
+      background:var(--surface2); border:1px solid var(--border);
+      border-radius:10px; color:#fff; font-size:13px;
+      outline:none; margin-bottom:20px; transition:border-color 0.3s;
+    }
+    .search-box:focus { border-color:var(--accent); }
+
+    /* 内容区 */
+    .content { flex:1; padding:24px; overflow-y:auto; }
+    .content-header {
+      display:flex; align-items:center; gap:16px;
+      margin-bottom:20px;
+    }
+    .content-header h2 { font-size:18px; }
+    .content-header .badge {
+      padding:4px 12px; border-radius:20px;
+      font-size:11px; background:var(--surface2); color:var(--text2);
+    }
+    .view-toggle {
+      margin-left:auto; display:flex; gap:4px;
+      background:var(--surface); border-radius:8px; padding:3px;
+    }
+    .view-btn {
+      padding:6px 14px; border:none; border-radius:6px;
+      background:transparent; color:var(--text2); font-size:12px;
+      cursor:pointer; transition:all 0.2s;
+    }
+    .view-btn.active { background:var(--accent); color:#fff; }
+
+    /* 卡片网格 */
+    .grid {
+      display:grid;
+      grid-template-columns:repeat(auto-fill, minmax(280px, 1fr));
+      gap:16px;
+    }
+    .grid.list { grid-template-columns:1fr; }
+
+    /* 风格卡片 */
+    .style-card {
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:16px;
+      overflow:hidden;
+      cursor:pointer;
+      transition:all 0.3s;
+      position:relative;
+    }
+    .style-card:hover {
+      transform:translateY(-3px);
+      box-shadow:0 10px 30px rgba(0,0,0,0.3);
+      border-color:var(--accent);
+    }
+    .card-preview {
+      height:120px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:48px;
+      position:relative; overflow:hidden;
+    }
+    .card-preview .bg-gradient {
+      position:absolute; inset:0;
+      opacity:0.6;
+    }
+    .card-preview .icon-wrap {
+      position:relative; z-index:1;
+      filter:drop-shadow(0 4px 12px rgba(0,0,0,0.5));
+    }
+    .card-body { padding:16px; }
+    .card-top { display:flex; align-items:center; gap:10px; margin-bottom:8px; }
+    .card-name { font-size:16px; font-weight:700; }
+    .card-name-cn { font-size:12px; color:var(--text2); }
+    .card-rarity {
+      margin-left:auto; padding:3px 10px; border-radius:12px;
+      font-size:10px; font-weight:700; letter-spacing:1px;
+    }
+    .card-rarity.ssr { background:linear-gradient(90deg,#ffd700,#ff6b00); color:#000; }
+    .card-rarity.sr { background:linear-gradient(90deg,#c084fc,#a855f7); color:#fff; }
+    .card-rarity.r { background:linear-gradient(90deg,#60a5fa,#3b82f6); color:#fff; }
+    .card-rarity.n { background:var(--surface2); color:var(--text2); }
+    .card-desc { font-size:12px; color:var(--text2); line-height:1.6; margin-bottom:10px; }
+    .card-tags { display:flex; gap:6px; flex-wrap:wrap; }
+    .card-tag {
+      padding:3px 10px; font-size:10px;
+      background:var(--surface2); border-radius:10px; color:var(--text2);
+    }
+    .card-colors {
+      display:flex; gap:6px; margin-top:10px;
+    }
+    .color-swatch {
+      width:24px; height:24px; border-radius:6px;
+      border:2px solid var(--border);
+      position:relative;
+    }
+    .color-swatch::after {
+      content:attr(title);
+      position:absolute; bottom:-20px; left:50%; transform:translateX(-50%);
+      font-size:9px; color:var(--text2); white-space:nowrap;
+      opacity:0; transition:opacity 0.2s; pointer-events:none;
+    }
+    .color-swatch:hover::after { opacity:1; }
+
+    /* 列表模式 */
+    .grid.list .style-card {
+      display:flex; align-items:center;
+    }
+    .grid.list .card-preview {
+      width:80px; height:80px; min-width:80px;
+      border-radius:0;
+      font-size:32px;
+    }
+    .grid.list .card-body {
+      display:flex; align-items:center; gap:16px; flex:1;
+    }
+    .grid.list .card-desc { display:none; }
+    .grid.list .card-tags { display:none; }
+
+    /* 3D预览按钮 */
+    .preview-btn {
+      display:inline-flex; align-items:center; gap:6px;
+      padding:8px 20px; margin-top:10px;
+      background:linear-gradient(135deg,var(--accent),#35d1ff);
+      border:none; border-radius:20px; color:#fff;
+      font-size:12px; font-weight:700; cursor:pointer;
+      transition:all 0.3s;
+    }
+    .preview-btn:hover { transform:scale(1.05); box-shadow:0 0 20px var(--accent); }
+
+    /* 详情面板 */
+    .detail-overlay {
+      position:fixed; inset:0; z-index:200;
+      background:rgba(0,0,0,0.8); backdrop-filter:blur(10px);
+      display:flex; align-items:center; justify-content:center;
+      opacity:0; pointer-events:none; transition:opacity 0.3s;
+    }
+    .detail-overlay.show { opacity:1; pointer-events:auto; }
+    .detail-panel {
+      width:600px; max-width:90vw; max-height:85vh;
+      background:var(--surface);
+      border:1px solid var(--border);
+      border-radius:24px;
+      overflow:hidden;
+      transform:scale(0.95); transition:transform 0.3s;
+    }
+    .detail-overlay.show .detail-panel { transform:scale(1); }
+    .detail-hero {
+      height:200px;
+      display:flex; align-items:center; justify-content:center;
+      font-size:80px;
+      position:relative;
+    }
+    .detail-hero .bg-gradient {
+      position:absolute; inset:0; opacity:0.5;
+    }
+    .detail-hero .icon-wrap {
+      position:relative; z-index:1;
+      filter:drop-shadow(0 8px 20px rgba(0,0,0,0.5));
+    }
+    .detail-body { padding:30px; overflow-y:auto; max-height:calc(85vh - 200px); }
+    .detail-title { font-size:28px; font-weight:900; margin-bottom:4px; }
+    .detail-subtitle { font-size:16px; color:var(--text2); margin-bottom:16px; }
+    .detail-rarity {
+      display:inline-block; padding:6px 20px; border-radius:20px;
+      font-size:12px; font-weight:700; letter-spacing:2px; margin-bottom:16px;
+    }
+    .detail-desc { font-size:14px; color:var(--text2); line-height:1.8; margin-bottom:20px; }
+    .detail-section { margin-bottom:20px; }
+    .detail-section h4 {
+      font-size:12px; text-transform:uppercase; letter-spacing:2px;
+      color:var(--text2); margin-bottom:10px;
+    }
+    .detail-colors {
+      display:flex; gap:16px;
+    }
+    .detail-color-item {
+      display:flex; flex-direction:column; align-items:center; gap:6px;
+    }
+    .detail-color-swatch {
+      width:50px; height:50px; border-radius:12px;
+      border:2px solid var(--border);
+    }
+    .detail-color-label { font-size:11px; color:var(--text2); }
+    .detail-color-hex { font-size:10px; font-family:monospace; color:var(--text2); }
+    .detail-tags { display:flex; gap:8px; flex-wrap:wrap; }
+    .detail-tag {
+      padding:6px 16px; background:var(--surface2); border-radius:20px;
+      font-size:12px; color:var(--text);
+    }
+    .detail-actions { display:flex; gap:12px; margin-top:20px; }
+    .detail-btn {
+      flex:1; padding:14px; border:none; border-radius:12px;
+      font-size:14px; font-weight:700; cursor:pointer; transition:all 0.3s;
+    }
+    .detail-btn.primary {
+      background:linear-gradient(135deg,var(--accent),#35d1ff);
+      color:#fff;
+    }
+    .detail-btn.primary:hover { box-shadow:0 0 30px var(--accent); }
+    .detail-btn.secondary {
+      background:var(--surface2); color:var(--text); border:1px solid var(--border);
+    }
+    .detail-btn.secondary:hover { border-color:var(--accent); }
+    .close-btn {
+      position:absolute; top:16px; right:16px; z-index:10;
+      width:36px; height:36px; border-radius:50%;
+      background:rgba(0,0,0,0.5); border:none; color:#fff;
+      font-size:18px; cursor:pointer; transition:all 0.2s;
+    }
+    .close-btn:hover { background:rgba(255,255,255,0.2); }
+
+    /* CSS token 预览 */
+    .token-preview {
+      background:var(--bg); border:1px solid var(--border);
+      border-radius:12px; padding:16px; margin-top:12px;
+      font-family:monospace; font-size:12px; line-height:1.8;
+      color:var(--text2); overflow-x:auto;
+    }
+    .token-key { color:var(--accent); }
+    .token-val { color:#35d1ff; }
+
+    /* 空状态 */
+    .empty-state {
+      text-align:center; padding:80px 20px;
+      color:var(--text2);
+    }
+    .empty-state .icon { font-size:48px; margin-bottom:16px; opacity:0.3; }
+    .empty-state p { font-size:14px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>✦ 风格宇宙后台</h1>
+    <div class="stats">
+      <div><div class="stat-val" id="total">0</div>总计</div>
+      <div><div class="stat-val" id="ssrCount">0</div>SSR</div>
+      <div><div class="stat-val" id="srCount">0</div>SR</div>
+      <div><div class="stat-val" id="rCount">0</div>R</div>
+      <div><div class="stat-val" id="nCount">0</div>N</div>
+    </div>
+    <a href="index.html">2D 版</a>
+    <a href="3d.html">3D 版</a>
+  </div>
+
+  <div class="main">
+    <div class="sidebar">
+      <input class="search-box" id="search" placeholder="搜索风格..." />
+
+      <div class="filter-group">
+        <h3>稀有度</h3>
+        <button class="filter-btn active" data-filter="all" onclick="filterRarity('all',this)">
+          全部 <span class="count" id="countAll">0</span>
+        </button>
+        <button class="filter-btn" data-filter="SSR" onclick="filterRarity('SSR',this)">
+          <span class="rarity-dot ssr"></span> SSR <span class="count" id="countSSR">0</span>
+        </button>
+        <button class="filter-btn" data-filter="SR" onclick="filterRarity('SR',this)">
+          <span class="rarity-dot sr"></span> SR <span class="count" id="countSR">0</span>
+        </button>
+        <button class="filter-btn" data-filter="R" onclick="filterRarity('R',this)">
+          <span class="rarity-dot r"></span> R <span class="count" id="countR">0</span>
+        </button>
+        <button class="filter-btn" data-filter="N" onclick="filterRarity('N',this)">
+          <span class="rarity-dot n"></span> N <span class="count" id="countN">0</span>
+        </button>
+      </div>
+
+      <div class="filter-group">
+        <h3>快捷排序</h3>
+        <button class="filter-btn" onclick="sortBy('rarity')">按稀有度排序</button>
+        <button class="filter-btn" onclick="sortBy('name')">按名称排序</button>
+        <button class="filter-btn" onclick="sortBy('id')">按ID排序</button>
+      </div>
+
+      <div class="filter-group" id="tagFilters">
+        <h3>标签</h3>
+      </div>
+    </div>
+
+    <div class="content">
+      <div class="content-header">
+        <h2 id="contentTitle">全部风格</h2>
+        <span class="badge" id="contentCount">0 个</span>
+        <div class="view-toggle">
+          <button class="view-btn active" onclick="setView('grid',this)">网格</button>
+          <button class="view-btn" onclick="setView('list',this)">列表</button>
+        </div>
+      </div>
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+
+  <!-- 详情弹窗 -->
+  <div class="detail-overlay" id="detailOverlay" onclick="if(event.target===this)closeDetail()">
+    <div class="detail-panel">
+      <button class="close-btn" onclick="closeDetail()">✕</button>
+      <div class="detail-hero" id="detailHero">
+        <div class="bg-gradient" id="detailBg"></div>
+        <div class="icon-wrap" id="detailIcon">💎</div>
+      </div>
+      <div class="detail-body">
+        <div class="detail-rarity" id="detailRarity">SSR</div>
+        <div class="detail-title" id="detailName">Glassmorphism</div>
+        <div class="detail-subtitle" id="detailNameCN">玻璃拟态</div>
+        <div class="detail-desc" id="detailDesc">描述</div>
+
+        <div class="detail-section">
+          <h4>配色方案</h4>
+          <div class="detail-colors" id="detailColors"></div>
+        </div>
+
+        <div class="detail-section">
+          <h4>标签</h4>
+          <div class="detail-tags" id="detailTags"></div>
+        </div>
+
+        <div class="detail-section">
+          <h4>CSS Token</h4>
+          <div class="token-preview" id="detailTokens"></div>
+        </div>
+
+        <div class="detail-actions">
+          <button class="detail-btn primary" id="previewBtn">🎮 在3D中预览</button>
+          <button class="detail-btn secondary" onclick="copyTokens()">📋 复制CSS变量</button>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <script>
+    // ==================== 从 3D 版复制的风格数据 ====================
+    const STYLES = [
+      { id:'glass', name:'Glassmorphism', nameCN:'玻璃拟态', desc:'半透明磨砂质感，模糊背景，现代科技感的极致体现', tags:['科技','现代','透明'], icon:'💎', rarity:'SSR', colors:{ accent:'#7c5cff', accent2:'#35d1ff', bg:'#050510', ground:'#0a0a20' } },
+      { id:'neon', name:'Neon', nameCN:'霓虹灯', desc:'发光的城市美学，夜店都市氛围，赛博夜晚的永恒主题', tags:['夜店','发光','都市'], icon:'💡', rarity:'SSR', colors:{ accent:'#ff00ff', accent2:'#00ff00', bg:'#05000a', ground:'#0a0015' } },
+      { id:'cyber', name:'Cyberpunk', nameCN:'赛博朋克', desc:'高科技低生活，霓虹与黑暗交织的未来都市幻想', tags:['科幻','未来','霓虹'], icon:'🌃', rarity:'SSR', colors:{ accent:'#00ffff', accent2:'#ff00ff', bg:'#050008', ground:'#080015' } },
+      { id:'aurora', name:'Aurora', nameCN:'极光', desc:'北极夜空的神秘色彩，波动流淌的梦幻光影', tags:['梦幻','流动','自然'], icon:'✨', rarity:'SSR', colors:{ accent:'#00ff7f', accent2:'#9370db', bg:'#030810', ground:'#051020' } },
+      { id:'japanese', name:'Japanese', nameCN:'和风', desc:'侘寂美学的东方意境，樱花纷飞的诗意空间', tags:['日式','禅意','樱花'], icon:'🌸', rarity:'SSR', colors:{ accent:'#ff6b9d', accent2:'#ffb7c5', bg:'#0a0508', ground:'#150810' } },
+      { id:'gothic', name:'Gothic', nameCN:'哥特', desc:'暗红与黑色交织，中世纪的神秘与恐怖美学', tags:['暗黑','神秘','中世纪'], icon:'🦇', rarity:'SSR', colors:{ accent:'#8b0000', accent2:'#4a0080', bg:'#050505', ground:'#100508' } },
+      { id:'holographic', name:'Holographic', nameCN:'全息', desc:'彩虹渐变的金属光泽，未来科技的投影美学', tags:['未来','渐变','光泽'], icon:'🔮', rarity:'SSR', colors:{ accent:'#ff6ec7', accent2:'#7df9ff', bg:'#080508', ground:'#100810' } },
+      { id:'glitch', name:'Glitch', nameCN:'故障艺术', desc:'RGB偏移与画面撕裂，数字世界的美丽错误', tags:['故障','数字','艺术'], icon:'📺', rarity:'SSR', colors:{ accent:'#ff00ff', accent2:'#00ffff', bg:'#080808', ground:'#101015' } },
+      { id:'liminalspace', name:'Liminal Space', nameCN:'阈限空间', desc:'诡异熟悉的过渡空间，介于现实与梦境', tags:['诡异','超现实'], icon:'🚪', rarity:'SSR', colors:{ accent:'#c0c0c0', accent2:'#808080', bg:'#0a0a0a', ground:'#151515' } },
+      { id:'weirdcore', name:'Weirdcore', nameCN:'怪核', desc:'低质图像的不协调美学，互联网的诡异探索', tags:['诡异','超现实'], icon:'👁️', rarity:'SSR', colors:{ accent:'#ff00ff', accent2:'#00ff00', bg:'#080808', ground:'#101010' } },
+      // SR
+      { id:'vaporwave', name:'Vaporwave', nameCN:'蒸汽波', desc:'80年代复古未来主义，粉蓝渐变的怀旧梦境', tags:['复古','80年代','梦幻'], icon:'🌴', rarity:'SR', colors:{ accent:'#ff71ce', accent2:'#01cdfe', bg:'#0a0518', ground:'#150820' } },
+      { id:'pixel', name:'Pixel', nameCN:'像素风', desc:'8-bit游戏的复古情怀，像素点阵的独特魅力', tags:['游戏','复古','8bit'], icon:'👾', rarity:'SR', colors:{ accent:'#00ff00', accent2:'#ffff00', bg:'#080810', ground:'#101020' } },
+      { id:'matrix', name:'Matrix', nameCN:'黑客帝国', desc:'绿色代码雨倾泻而下，数字世界的真相觉醒', tags:['黑客','代码','数字'], icon:'🖥️', rarity:'SR', colors:{ accent:'#00ff00', accent2:'#00aa00', bg:'#000800', ground:'#001000' } },
+      { id:'chinese', name:'Chinese', nameCN:'国风', desc:'朱红与金色交相辉映，传统纹样的东方韵味', tags:['中式','传统','古典'], icon:'🏮', rarity:'SR', colors:{ accent:'#ff3333', accent2:'#ffd700', bg:'#0a0505', ground:'#150808' } },
+      { id:'ocean', name:'Ocean', nameCN:'海洋', desc:'深海蓝绿的神秘呼唤，水母漂浮的梦幻', tags:['海洋','深海','流动'], icon:'🌊', rarity:'SR', colors:{ accent:'#0099cc', accent2:'#00ffcc', bg:'#030810', ground:'#051520' } },
+      { id:'romantic', name:'Romantic', nameCN:'浪漫', desc:'粉色与爱心的甜蜜氛围，幸福时刻的美好象征', tags:['浪漫','甜蜜','粉色'], icon:'💕', rarity:'SR', colors:{ accent:'#ff69b4', accent2:'#ffb6c1', bg:'#100508', ground:'#180a10' } },
+      { id:'steampunk', name:'Steampunk', nameCN:'蒸汽朋克', desc:'维多利亚时代的机械美学，齿轮与铜管的幻想', tags:['机械','复古','工业'], icon:'⚙️', rarity:'SR', colors:{ accent:'#b8860b', accent2:'#cd7f32', bg:'#0a0805', ground:'#151008' } },
+      { id:'kawaii', name:'Kawaii', nameCN:'可爱粉彩', desc:'马卡龙配色的治愈系，圆润可爱的日系美学', tags:['可爱','日系','粉彩'], icon:'🎀', rarity:'SR', colors:{ accent:'#ffb7c5', accent2:'#b19cd9', bg:'#100810', ground:'#180c18' } },
+      { id:'artdeco', name:'Art Deco', nameCN:'装饰艺术', desc:'几何对称与金色装饰，爵士时代的奢华优雅', tags:['奢华','几何','金色'], icon:'🏛️', rarity:'SR', colors:{ accent:'#d4af37', accent2:'#ffd700', bg:'#08080f', ground:'#101018' } },
+      { id:'synthwave', name:'Synthwave', nameCN:'合成波', desc:'紫红落日的电子梦境，复古未来的声光', tags:['复古','霓虹'], icon:'🎹', rarity:'SR', colors:{ accent:'#f72585', accent2:'#7209b7', bg:'#0a0510', ground:'#150818' } },
+      { id:'watercolor', name:'Watercolor', nameCN:'水彩', desc:'柔和晕染的艺术气质，透明层叠的诗意', tags:['艺术','手绘'], icon:'🎨', rarity:'SR', colors:{ accent:'#87ceeb', accent2:'#dda0dd', bg:'#080a10', ground:'#101520' } },
+      { id:'ios', name:'iOS', nameCN:'苹果风', desc:'毛玻璃效果与圆润图标，苹果设计的优雅简洁', tags:['苹果','简洁'], icon:'🍎', rarity:'SR', colors:{ accent:'#007aff', accent2:'#5856d6', bg:'#0a0a10', ground:'#101520' } },
+      { id:'material', name:'Material You', nameCN:'Material', desc:'Google动态配色系统，Material3的流畅体验', tags:['谷歌','现代'], icon:'🎨', rarity:'SR', colors:{ accent:'#6750a4', accent2:'#d0bcff', bg:'#0a0810', ground:'#151020' } },
+      { id:'indian', name:'Indian', nameCN:'印度风', desc:'香料色彩与曼陀罗图案，热情奔放的异域风情', tags:['印度','热情'], icon:'🪔', rarity:'SR', colors:{ accent:'#ff9933', accent2:'#128807', bg:'#0a0805', ground:'#1a1008' } },
+      { id:'arabian', name:'Arabian', nameCN:'中东风', desc:'波斯纹样与金蓝配色，千一夜的神秘文明', tags:['中东','奢华'], icon:'🕌', rarity:'SR', colors:{ accent:'#1e90ff', accent2:'#ffd700', bg:'#050810', ground:'#0a1020' } },
+      { id:'memphis', name:'Memphis', nameCN:'孟菲斯', desc:'80年代后现代的几何撞色视觉冲击', tags:['后现代','撞色'], icon:'🔺', rarity:'SR', colors:{ accent:'#ff6b6b', accent2:'#4ecdc4', bg:'#0a0810', ground:'#151020' } },
+      { id:'victorian', name:'Victorian', nameCN:'维多利亚', desc:'华丽暗金的古典优雅，贵族风范的极致', tags:['古典','华丽'], icon:'👑', rarity:'SR', colors:{ accent:'#8b4513', accent2:'#daa520', bg:'#080505', ground:'#100a08' } },
+      { id:'popart', name:'Pop Art', nameCN:'波普艺术', desc:'大胆撞色的重复图案，安迪沃霍尔的视觉革命', tags:['波普','大胆'], icon:'🍌', rarity:'SR', colors:{ accent:'#ff1493', accent2:'#00ff00', bg:'#0a0508', ground:'#150810' } },
+      { id:'gaming', name:'Gaming', nameCN:'电竞', desc:'紫绿霓虹的动感效果，电子竞技的热血激情', tags:['游戏','竞技'], icon:'🎮', rarity:'SR', colors:{ accent:'#8a2be2', accent2:'#00ff00', bg:'#050508', ground:'#0a0810' } },
+      { id:'fashion', name:'Fashion', nameCN:'时尚', desc:'黑白金配的高级感，潮流前沿的视觉语言', tags:['时尚','高级'], icon:'👗', rarity:'SR', colors:{ accent:'#1a1a1a', accent2:'#ffd700', bg:'#080808', ground:'#101010' } },
+      { id:'marble', name:'Marble', nameCN:'大理石', desc:'冷白灰调的大理石纹，奢华建材的高贵气质', tags:['大理石','奢华'], icon:'🗿', rarity:'SR', colors:{ accent:'#e0e0e0', accent2:'#a0a0a0', bg:'#080a0a', ground:'#101515' } },
+      { id:'luxury', name:'Luxury', nameCN:'奢感', desc:'低饱和细线条的大留白，极致的高级质感', tags:['奢华','精致'], icon:'💎', rarity:'SR', colors:{ accent:'#c9b037', accent2:'#d4af37', bg:'#080808', ground:'#101010' } },
+      { id:'solarpunk', name:'Solarpunk', nameCN:'阳光朋克', desc:'绿色未来的乐观科技，可持续发展的美好愿景', tags:['生态','乐观'], icon:'☀️', rarity:'SR', colors:{ accent:'#32cd32', accent2:'#ffd700', bg:'#050a05', ground:'#0a1508' } },
+      { id:'darkacademia', name:'Dark Academia', nameCN:'暗黑学院', desc:'古典学院的深棕书卷气，知性神秘的烛光', tags:['学院','知性'], icon:'📚', rarity:'SR', colors:{ accent:'#3c2415', accent2:'#8b4513', bg:'#080605', ground:'#100a08' } },
+      { id:'dreamcore', name:'Dreamcore', nameCN:'梦核', desc:'柔和光线的梦境逻辑，虚幻世界的迷离之美', tags:['梦幻','超现实'], icon:'💭', rarity:'SR', colors:{ accent:'#e6e6fa', accent2:'#dda0dd', bg:'#080810', ground:'#101018' } },
+      { id:'frutiger', name:'Frutiger Aero', nameCN:'Frutiger', desc:'2000年代的数字乐观，透明泡泡与自然元素', tags:['透明','2000s'], icon:'🫧', rarity:'SR', colors:{ accent:'#87ceeb', accent2:'#98fb98', bg:'#050a0a', ground:'#081515' } },
+      { id:'neumorphism', name:'Neumorphism', nameCN:'新拟物', desc:'柔和凹凸的内外阴影，温柔触感的设计语言', tags:['拟物','柔和'], icon:'🔘', rarity:'SR', colors:{ accent:'#a0a0b0', accent2:'#c0c0d0', bg:'#101015', ground:'#181820' } },
+      { id:'clay', name:'Claymorphism', nameCN:'黏土风', desc:'3D软糯质感的彩色黏土，趣味立体的童真世界', tags:['3D','趣味'], icon:'🪁', rarity:'SR', colors:{ accent:'#ff6b9d', accent2:'#ffa94d', bg:'#0a0510', ground:'#150818' } },
+      // R
+      { id:'sunset', name:'Sunset', nameCN:'日落', desc:'黄昏的温暖橙红，一天结束前最浪漫的时刻', tags:['日落','浪漫'], icon:'🌅', rarity:'R', colors:{ accent:'#ff6347', accent2:'#ffd700', bg:'#100805', ground:'#201008' } },
+      { id:'winter', name:'Winter', nameCN:'冬天', desc:'冰蓝白雪的纯净世界，宁静祥和的银白季节', tags:['冬天','雪花'], icon:'❄️', rarity:'R', colors:{ accent:'#60a5fa', accent2:'#c4b5fd', bg:'#050810', ground:'#081020' } },
+      { id:'forest', name:'Forest', nameCN:'森林', desc:'深绿暗调的神秘林地，萤火虫点亮的魔法空间', tags:['森林','萤火虫'], icon:'🌲', rarity:'R', colors:{ accent:'#228b22', accent2:'#7cfc00', bg:'#030805', ground:'#051008' } },
+      { id:'gradient', name:'Gradient', nameCN:'渐变流体', desc:'多彩渐变的流动艺术，色彩的交融盛宴', tags:['渐变','流动'], icon:'🌈', rarity:'R', colors:{ accent:'#667eea', accent2:'#f093fb', bg:'#080510', ground:'#100818' } },
+      { id:'zen', name:'Zen', nameCN:'禅意', desc:'枯山水的极简静谧，内心宁静的东方哲学', tags:['禅意','平静'], icon:'☯️', rarity:'R', colors:{ accent:'#8fbc8f', accent2:'#d2b48c', bg:'#080a08', ground:'#101510' } },
+      { id:'midnight', name:'Midnight', nameCN:'午夜', desc:'深夜星空的神秘时刻，万籁俱寂的深邃', tags:['午夜','星空'], icon:'🌙', rarity:'R', colors:{ accent:'#191970', accent2:'#4b0082', bg:'#030508', ground:'#050810' } },
+      { id:'terminal', name:'Terminal', nameCN:'终端', desc:'命令行的复古科技感，绿色磷光的呢喃', tags:['代码','终端'], icon:'⌨️', rarity:'R', colors:{ accent:'#00ff00', accent2:'#00aa00', bg:'#000500', ground:'#000a00' } },
+      { id:'spring', name:'Spring', nameCN:'春天', desc:'万物复苏的生命力，嫩绿粉色的新芽', tags:['春天','生机'], icon:'🌷', rarity:'R', colors:{ accent:'#98fb98', accent2:'#ffb7c5', bg:'#050a08', ground:'#081510' } },
+      { id:'autumn', name:'Autumn', nameCN:'秋天', desc:'金色落叶的成熟温暖，丰收季节的美丽', tags:['秋天','落叶'], icon:'🍂', rarity:'R', colors:{ accent:'#ff8c00', accent2:'#8b4513', bg:'#100805', ground:'#201008' } },
+      { id:'github', name:'GitHub', nameCN:'GitHub', desc:'代码托管的数字家园，开发者的绿色贡献图', tags:['代码','社区'], icon:'🐙', rarity:'R', colors:{ accent:'#238636', accent2:'#58a6ff', bg:'#050810', ground:'#0d1117' } },
+      { id:'spotify', name:'Spotify', nameCN:'Spotify', desc:'音乐世界的律动节奏，绿黑配色的声波', tags:['音乐','律动'], icon:'🎵', rarity:'R', colors:{ accent:'#1db954', accent2:'#191414', bg:'#050805', ground:'#121212' } },
+      { id:'discord', name:'Discord', nameCN:'Discord', desc:'游戏社交的紫蓝空间，社区氛围的欢声', tags:['社交','游戏'], icon:'🎧', rarity:'R', colors:{ accent:'#5865f2', accent2:'#eb459e', bg:'#080810', ground:'#2f3136' } },
+      { id:'figma', name:'Figma', nameCN:'Figma', desc:'设计工具的创意画布', tags:['设计','创意'], icon:'🖌️', rarity:'R', colors:{ accent:'#f24e1e', accent2:'#a259ff', bg:'#080808', ground:'#101010' } },
+      { id:'stripe', name:'Stripe', nameCN:'Stripe', desc:'支付平台的深蓝渐变', tags:['支付','专业'], icon:'💳', rarity:'R', colors:{ accent:'#635bff', accent2:'#00d4ff', bg:'#050810', ground:'#0a1020' } },
+      { id:'fluent', name:'Fluent', nameCN:'Fluent', desc:'微软流畅设计', tags:['微软','流畅'], icon:'🪟', rarity:'R', colors:{ accent:'#0078d4', accent2:'#00bcf2', bg:'#050810', ground:'#0a1020' } },
+      { id:'linear', name:'Linear', nameCN:'Linear', desc:'项目管理的暗紫极简', tags:['效率','暗色'], icon:'📊', rarity:'R', colors:{ accent:'#5e6ad2', accent2:'#8b5cf6', bg:'#050510', ground:'#0a0818' } },
+      { id:'korean', name:'Korean', nameCN:'韩风', desc:'清新柔和的粉蓝配色', tags:['韩式','清新'], icon:'🇰🇷', rarity:'R', colors:{ accent:'#ffb6c1', accent2:'#87ceeb', bg:'#0a080f', ground:'#151020' } },
+      { id:'african', name:'African', nameCN:'非洲风', desc:'部落图案与大地暖色', tags:['非洲','力量'], icon:'🌍', rarity:'R', colors:{ accent:'#cd853f', accent2:'#8b4513', bg:'#0a0805', ground:'#1a1008' } },
+      { id:'greek', name:'Greek', nameCN:'希腊风', desc:'爱琴海蓝白与古典柱式', tags:['希腊','古典'], icon:'🏛️', rarity:'R', colors:{ accent:'#0066cc', accent2:'#e0e0e0', bg:'#050810', ground:'#0a1520' } },
+      { id:'mediterranean', name:'Mediterranean', nameCN:'地中海', desc:'蓝白阳光海岸', tags:['度假','阳光'], icon:'🏖️', rarity:'R', colors:{ accent:'#1e90ff', accent2:'#ffffff', bg:'#050a10', ground:'#081520' } },
+      { id:'bauhaus', name:'Bauhaus', nameCN:'包豪斯', desc:'几何基础与三原色', tags:['几何','功能'], icon:'🔵', rarity:'R', colors:{ accent:'#e63946', accent2:'#457b9d', bg:'#080a0f', ground:'#101520' } },
+      { id:'dieselpunk', name:'Dieselpunk', nameCN:'柴油朋克', desc:'二战工业的粗犷美学', tags:['工业','粗犷'], icon:'🏭', rarity:'R', colors:{ accent:'#696969', accent2:'#8b4513', bg:'#080808', ground:'#101010' } },
+      { id:'comic', name:'Comic', nameCN:'漫画', desc:'粗黑描边与爆炸文字', tags:['漫画','卡通'], icon:'💥', rarity:'R', colors:{ accent:'#ffff00', accent2:'#ff0000', bg:'#0a0a10', ground:'#151520' } },
+      { id:'sketch', name:'Sketch', nameCN:'素描', desc:'铅笔线条的手绘质感', tags:['手绘','线条'], icon:'✏️', rarity:'R', colors:{ accent:'#808080', accent2:'#a0a0a0', bg:'#0a0a0a', ground:'#151515' } },
+      { id:'abstract', name:'Abstract', nameCN:'抽象', desc:'非具象的几何形态', tags:['抽象','现代'], icon:'🎭', rarity:'R', colors:{ accent:'#ff6347', accent2:'#4169e1', bg:'#08080a', ground:'#101015' } },
+      { id:'brutal', name:'Neo-Brutalism', nameCN:'新粗野主义', desc:'粗黑边框与硬阴影', tags:['大胆','硬朗'], icon:'🔲', rarity:'R', colors:{ accent:'#ff4500', accent2:'#ffd700', bg:'#101010', ground:'#1a1a1a' } },
+      { id:'poster', name:'Poster', nameCN:'海报风', desc:'强对比块面的视觉冲击力', tags:['海报','高对比'], icon:'📰', rarity:'R', colors:{ accent:'#ff4500', accent2:'#ffd700', bg:'#080505', ground:'#100a08' } },
+      { id:'energetic', name:'Energetic', nameCN:'活力', desc:'橙黄配色的动感元素', tags:['活力','动感'], icon:'⚡', rarity:'R', colors:{ accent:'#ff8c00', accent2:'#ffd700', bg:'#100805', ground:'#201008' } },
+      { id:'mysterious', name:'Mysterious', nameCN:'神秘', desc:'深紫暗影的未知世界', tags:['神秘','深邃'], icon:'🔮', rarity:'R', colors:{ accent:'#663399', accent2:'#9932cc', bg:'#050510', ground:'#080818' } },
+      { id:'swiss', name:'Swiss Design', nameCN:'瑞士设计', desc:'网格系统的理性美学', tags:['极简','理性'], icon:'🇨🇭', rarity:'R', colors:{ accent:'#ff0000', accent2:'#000000', bg:'#0a0a0a', ground:'#151515' } },
+      { id:'nordic', name:'Nordic', nameCN:'北欧风', desc:'功能主义的温暖舒适', tags:['北欧','温暖'], icon:'🏠', rarity:'R', colors:{ accent:'#5f9ea0', accent2:'#deb887', bg:'#0a0a0f', ground:'#101518' } },
+      { id:'coral', name:'Coral', nameCN:'珊瑚', desc:'珊瑚粉色的温柔海底', tags:['珊瑚','温柔'], icon:'🪸', rarity:'R', colors:{ accent:'#ff7f50', accent2:'#ff6b6b', bg:'#100808', ground:'#1a1010' } },
+      { id:'metal', name:'Metal', nameCN:'金属', desc:'冷灰色调的金属光泽', tags:['金属','工业'], icon:'🔩', rarity:'R', colors:{ accent:'#808080', accent2:'#c0c0c0', bg:'#080808', ground:'#101010' } },
+      { id:'leather', name:'Leather', nameCN:'皮革', desc:'复古棕色的皮革纹路', tags:['皮革','复古'], icon:'👜', rarity:'R', colors:{ accent:'#8b4513', accent2:'#654321', bg:'#080605', ground:'#100a08' } },
+      { id:'music', name:'Music', nameCN:'音乐', desc:'声波视觉的粉青律动', tags:['音乐','律动'], icon:'🎸', rarity:'R', colors:{ accent:'#ff69b4', accent2:'#00ced1', bg:'#080510', ground:'#100818' } },
+      { id:'finance', name:'Finance', nameCN:'金融', desc:'绿红数据的专业信赖', tags:['金融','数据'], icon:'📈', rarity:'R', colors:{ accent:'#228b22', accent2:'#dc143c', bg:'#050808', ground:'#0a1010' } },
+      { id:'travel', name:'Travel', nameCN:'旅游', desc:'蓝橙配色的探索精神', tags:['旅游','探索'], icon:'✈️', rarity:'R', colors:{ accent:'#1e90ff', accent2:'#ff8c00', bg:'#050810', ground:'#0a1020' } },
+      { id:'sports', name:'Sports', nameCN:'运动', desc:'橙绿配色的竞技力量', tags:['运动','活力'], icon:'⚽', rarity:'R', colors:{ accent:'#ff4500', accent2:'#32cd32', bg:'#100805', ground:'#201008' } },
+      { id:'wedding', name:'Wedding', nameCN:'婚礼', desc:'粉金配色的浪漫优雅', tags:['婚礼','浪漫'], icon:'💒', rarity:'R', colors:{ accent:'#ffb6c1', accent2:'#ffd700', bg:'#100808', ground:'#1a1010' } },
+      { id:'cottagecore', name:'Cottagecore', nameCN:'田园核', desc:'乡村田园的手工艺美学', tags:['田园','自然'], icon:'🏡', rarity:'R', colors:{ accent:'#deb887', accent2:'#8fbc8f', bg:'#0a0a08', ground:'#151510' } },
+      { id:'lightacademia', name:'Light Academia', nameCN:'浅色学院', desc:'阳光图书馆的温暖知性', tags:['学院','温和'], icon:'📖', rarity:'R', colors:{ accent:'#f5deb3', accent2:'#d2b48c', bg:'#0a0908', ground:'#151510' } },
+      { id:'stormy', name:'Stormy', nameCN:'暴风', desc:'暗灰闪电的戏剧张力', tags:['暴风','戏剧'], icon:'⛈️', rarity:'R', colors:{ accent:'#483d8b', accent2:'#ffd700', bg:'#050508', ground:'#0a0810' } },
+      { id:'dawn', name:'Dawn', nameCN:'黎明', desc:'粉橙渐变的晨曦初现', tags:['黎明','希望'], icon:'🌅', rarity:'R', colors:{ accent:'#ffb6c1', accent2:'#ffa07a', bg:'#100808', ground:'#1a1010' } },
+      { id:'dusk', name:'Dusk', nameCN:'黄昏', desc:'橙紫渐变的落日余晖', tags:['黄昏','浪漫'], icon:'🌆', rarity:'R', colors:{ accent:'#ff8c00', accent2:'#9370db', bg:'#100508', ground:'#1a0810' } },
+      { id:'summer', name:'Summer', nameCN:'夏天', desc:'明亮橙黄的阳光海滩', tags:['夏天','热情'], icon:'🏖️', rarity:'R', colors:{ accent:'#ffa500', accent2:'#ff6347', bg:'#100805', ground:'#201008' } },
+      // N
+      { id:'desert', name:'Desert', nameCN:'沙漠', desc:'广袤荒原的苍凉之美', tags:['沙漠','荒凉'], icon:'🏜️', rarity:'N', colors:{ accent:'#daa520', accent2:'#cd853f', bg:'#100a05', ground:'#201508' } },
+      { id:'cheerful', name:'Cheerful', nameCN:'欢快', desc:'明黄配色的阳光积极', tags:['阳光','快乐'], icon:'😊', rarity:'N', colors:{ accent:'#ffd700', accent2:'#ffb347', bg:'#100a05', ground:'#201508' } },
+      { id:'melancholy', name:'Melancholy', nameCN:'忧郁', desc:'蓝灰雨天的沉思诗意', tags:['忧郁','沉思'], icon:'🌧️', rarity:'N', colors:{ accent:'#708090', accent2:'#4682b4', bg:'#050810', ground:'#081015' } },
+      { id:'muji', name:'MUJI', nameCN:'无印风', desc:'米白大地色的朴素自然', tags:['自然','朴素'], icon:'🍃', rarity:'N', colors:{ accent:'#d2b48c', accent2:'#8b7355', bg:'#0a0908', ground:'#151510' } },
+      { id:'mono', name:'Monochrome', nameCN:'黑白', desc:'黑白灰强对比的纯粹', tags:['黑白','对比'], icon:'🖤', rarity:'N', colors:{ accent:'#ffffff', accent2:'#808080', bg:'#080808', ground:'#101010' } },
+      { id:'flat', name:'Flat', nameCN:'扁平', desc:'无阴影纯色块的现代简洁', tags:['扁平','简洁'], icon:'📐', rarity:'N', colors:{ accent:'#3498db', accent2:'#e74c3c', bg:'#0a0a0f', ground:'#101518' } },
+      { id:'nature', name:'Nature', nameCN:'自然', desc:'绿色有机形态的生态友好', tags:['自然','生态'], icon:'🌿', rarity:'N', colors:{ accent:'#22c55e', accent2:'#84cc16', bg:'#050a05', ground:'#081508' } },
+      { id:'wood', name:'Wood', nameCN:'木质', desc:'温暖棕色的木纹肌理', tags:['木质','温暖'], icon:'🪵', rarity:'N', colors:{ accent:'#8b4513', accent2:'#a0522d', bg:'#0a0805', ground:'#151008' } },
+      { id:'paper', name:'Paper', nameCN:'纸质', desc:'米黄纸张的文艺质感', tags:['纸张','文艺'], icon:'📜', rarity:'N', colors:{ accent:'#f5deb3', accent2:'#d2b48c', bg:'#0a0908', ground:'#151510' } },
+      { id:'notion', name:'Notion', nameCN:'Notion', desc:'笔记协作的极简黑白', tags:['笔记','极简'], icon:'📝', rarity:'N', colors:{ accent:'#ffffff', accent2:'#787878', bg:'#0a0a0a', ground:'#151515' } },
+      { id:'medical', name:'Medical', nameCN:'医疗', desc:'清洁蓝白的专业信任', tags:['医疗','专业'], icon:'🏥', rarity:'N', colors:{ accent:'#00bfff', accent2:'#ffffff', bg:'#050a10', ground:'#081520' } },
+      { id:'education', name:'Education', nameCN:'教育', desc:'知识绿色的亲和力量', tags:['教育','知识'], icon:'🎓', rarity:'N', colors:{ accent:'#2e8b57', accent2:'#3cb371', bg:'#050a08', ground:'#081510' } },
+      { id:'food', name:'Food', nameCN:'餐饮', desc:'暖橙绿配的食欲色彩', tags:['餐饮','美味'], icon:'🍽️', rarity:'N', colors:{ accent:'#ff8c00', accent2:'#32cd32', bg:'#100805', ground:'#201008' } },
+      { id:'kids', name:'Kids', nameCN:'儿童', desc:'糖果色彩的圆润形状', tags:['儿童','欢乐'], icon:'🧸', rarity:'N', colors:{ accent:'#ff69b4', accent2:'#00ced1', bg:'#100810', ground:'#180c18' } },
+      { id:'handmade', name:'Handmade', nameCN:'手作', desc:'暖灰纸感的亲和温暖', tags:['手作','温柔'], icon:'🧶', rarity:'N', colors:{ accent:'#d2b48c', accent2:'#bc8f8f', bg:'#0a0908', ground:'#151510' } },
+      { id:'sunny', name:'Sunny', nameCN:'晴天', desc:'金黄明亮的阳光普照', tags:['晴天','温暖'], icon:'☀️', rarity:'N', colors:{ accent:'#ffd700', accent2:'#ff8c00', bg:'#100a05', ground:'#201508' } },
+      { id:'rainy', name:'Rainy', nameCN:'雨天', desc:'蓝灰色调的雨滴涟漪', tags:['雨天','宁静'], icon:'🌧️', rarity:'N', colors:{ accent:'#4682b4', accent2:'#708090', bg:'#050810', ground:'#081015' } },
+      { id:'foggy', name:'Foggy', nameCN:'雾天', desc:'灰白朦胧的若隐若现', tags:['朦胧','神秘'], icon:'🌫️', rarity:'N', colors:{ accent:'#c0c0c0', accent2:'#a0a0a0', bg:'#0a0a0a', ground:'#151515' } },
+    ];
+
+    // ==================== 状态 ====================
+    let currentFilter = 'all';
+    let currentSearch = '';
+    let currentSort = 'default';
+    let currentView = 'grid';
+    let currentTagFilter = null;
+    let currentDetail = null;
+
+    // ==================== 初始化 ====================
+    function init() {
+      // 统计
+      const counts = { SSR:0, SR:0, R:0, N:0 };
+      STYLES.forEach(s => counts[s.rarity]++);
+      document.getElementById('total').textContent = STYLES.length;
+      document.getElementById('ssrCount').textContent = counts.SSR;
+      document.getElementById('srCount').textContent = counts.SR;
+      document.getElementById('rCount').textContent = counts.R;
+      document.getElementById('nCount').textContent = counts.N;
+      document.getElementById('countAll').textContent = STYLES.length;
+      document.getElementById('countSSR').textContent = counts.SSR;
+      document.getElementById('countSR').textContent = counts.SR;
+      document.getElementById('countR').textContent = counts.R;
+      document.getElementById('countN').textContent = counts.N;
+
+      // 标签
+      const allTags = new Map();
+      STYLES.forEach(s => s.tags.forEach(t => allTags.set(t, (allTags.get(t) || 0) + 1)));
+      const tagContainer = document.getElementById('tagFilters');
+      [...allTags.entries()]
+        .sort((a, b) => b[1] - a[1])
+        .slice(0, 20)
+        .forEach(([tag, count]) => {
+          const btn = document.createElement('button');
+          btn.className = 'filter-btn';
+          btn.innerHTML = `${tag} <span class="count">${count}</span>`;
+          btn.onclick = () => {
+            currentTagFilter = currentTagFilter === tag ? null : tag;
+            tagContainer.querySelectorAll('.filter-btn').forEach(b => b.classList.remove('active'));
+            if (currentTagFilter) btn.classList.add('active');
+            render();
+          };
+          tagContainer.appendChild(btn);
+        });
+
+      // 搜索
+      document.getElementById('search').addEventListener('input', e => {
+        currentSearch = e.target.value.toLowerCase();
+        render();
+      });
+
+      render();
+    }
+
+    // ==================== 筛选 ====================
+    function filterRarity(rarity, el) {
+      currentFilter = rarity;
+      document.querySelectorAll('[data-filter]').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      render();
+    }
+
+    function sortBy(method) {
+      currentSort = method;
+      render();
+    }
+
+    function setView(view, el) {
+      currentView = view;
+      document.querySelectorAll('.view-btn').forEach(b => b.classList.remove('active'));
+      el.classList.add('active');
+      const grid = document.getElementById('grid');
+      grid.classList.toggle('list', view === 'list');
+    }
+
+    // ==================== 渲染 ====================
+    function render() {
+      let filtered = [...STYLES];
+
+      // 稀有度筛选
+      if (currentFilter !== 'all') {
+        filtered = filtered.filter(s => s.rarity === currentFilter);
+      }
+
+      // 搜索
+      if (currentSearch) {
+        filtered = filtered.filter(s =>
+          s.name.toLowerCase().includes(currentSearch) ||
+          s.nameCN.includes(currentSearch) ||
+          s.id.includes(currentSearch) ||
+          s.desc.includes(currentSearch) ||
+          s.tags.some(t => t.includes(currentSearch))
+        );
+      }
+
+      // 标签
+      if (currentTagFilter) {
+        filtered = filtered.filter(s => s.tags.includes(currentTagFilter));
+      }
+
+      // 排序
+      const rarityOrder = { SSR:0, SR:1, R:2, N:3 };
+      if (currentSort === 'rarity') {
+        filtered.sort((a, b) => rarityOrder[a.rarity] - rarityOrder[b.rarity]);
+      } else if (currentSort === 'name') {
+        filtered.sort((a, b) => a.name.localeCompare(b.name));
+      } else if (currentSort === 'id') {
+        filtered.sort((a, b) => a.id.localeCompare(b.id));
+      }
+
+      // 更新标题
+      const titleMap = { all:'全部风格', SSR:'SSR 传说', SR:'SR 稀有', R:'R 精良', N:'N 普通' };
+      document.getElementById('contentTitle').textContent = currentTagFilter ? `标签: ${currentTagFilter}` : titleMap[currentFilter];
+      document.getElementById('contentCount').textContent = `${filtered.length} 个`;
+
+      // 渲染卡片
+      const grid = document.getElementById('grid');
+      if (filtered.length === 0) {
+        grid.innerHTML = '<div class="empty-state"><div class="icon">🔍</div><p>没有找到匹配的风格</p></div>';
+        return;
+      }
+
+      grid.innerHTML = filtered.map(s => `
+        <div class="style-card" onclick="openDetail('${s.id}')">
+          <div class="card-preview">
+            <div class="bg-gradient" style="background:linear-gradient(135deg,${s.colors.accent}30,${s.colors.accent2}30,${s.colors.bg});"></div>
+            <div class="icon-wrap">${s.icon}</div>
+          </div>
+          <div class="card-body">
+            <div class="card-top">
+              <div>
+                <div class="card-name">${s.name}</div>
+                <div class="card-name-cn">${s.nameCN}</div>
+              </div>
+              <span class="card-rarity ${s.rarity.toLowerCase()}">${s.rarity}</span>
+            </div>
+            <div class="card-desc">${s.desc}</div>
+            <div class="card-tags">${s.tags.map(t => `<span class="card-tag">${t}</span>`).join('')}</div>
+            <div class="card-colors">
+              <div class="color-swatch" style="background:${s.colors.accent}" title="${s.colors.accent}"></div>
+              <div class="color-swatch" style="background:${s.colors.accent2}" title="${s.colors.accent2}"></div>
+              <div class="color-swatch" style="background:${s.colors.bg}" title="${s.colors.bg}"></div>
+            </div>
+          </div>
+        </div>
+      `).join('');
+    }
+
+    // ==================== 详情 ====================
+    function openDetail(id) {
+      const s = STYLES.find(x => x.id === id);
+      if (!s) return;
+      currentDetail = s;
+
+      document.getElementById('detailBg').style.background = `linear-gradient(135deg,${s.colors.accent}50,${s.colors.accent2}50,${s.colors.bg})`;
+      document.getElementById('detailIcon').textContent = s.icon;
+      document.getElementById('detailRarity').textContent = s.rarity;
+      document.getElementById('detailRarity').className = 'detail-rarity card-rarity ' + s.rarity.toLowerCase();
+      document.getElementById('detailName').textContent = s.name;
+      document.getElementById('detailNameCN').textContent = s.nameCN;
+      document.getElementById('detailDesc').textContent = s.desc;
+
+      document.getElementById('detailColors').innerHTML = [
+        { label:'主色', hex:s.colors.accent },
+        { label:'辅色', hex:s.colors.accent2 },
+        { label:'背景', hex:s.colors.bg },
+        { label:'地面', hex:s.colors.ground },
+      ].map(c => `
+        <div class="detail-color-item">
+          <div class="detail-color-swatch" style="background:${c.hex}"></div>
+          <div class="detail-color-label">${c.label}</div>
+          <div class="detail-color-hex">${c.hex}</div>
+        </div>
+      `).join('');
+
+      document.getElementById('detailTags').innerHTML = s.tags.map(t => `<span class="detail-tag">${t}</span>`).join('');
+
+      document.getElementById('detailTokens').innerHTML = [
+        `<span class="token-key">--accent</span>: <span class="token-val">${s.colors.accent}</span>;`,
+        `<span class="token-key">--accent2</span>: <span class="token-val">${s.colors.accent2}</span>;`,
+        `<span class="token-key">--bg</span>: <span class="token-val">${s.colors.bg}</span>;`,
+        `<span class="token-key">--ground</span>: <span class="token-val">${s.colors.ground}</span>;`,
+        `<span class="token-key">--rarity</span>: <span class="token-val">${s.rarity}</span>;`,
+      ].join('<br>');
+
+      document.getElementById('previewBtn').onclick = () => {
+        window.open(`3d.html#preview=${s.id}`, '_blank');
+      };
+
+      document.getElementById('detailOverlay').classList.add('show');
+    }
+
+    function closeDetail() {
+      document.getElementById('detailOverlay').classList.remove('show');
+    }
+
+    function copyTokens() {
+      if (!currentDetail) return;
+      const s = currentDetail;
+      const tokens = `:root {\n  --accent: ${s.colors.accent};\n  --accent2: ${s.colors.accent2};\n  --bg: ${s.colors.bg};\n  --ground: ${s.colors.ground};\n}`;
+      navigator.clipboard.writeText(tokens).then(() => {
+        const btn = document.querySelector('.detail-btn.secondary');
+        btn.textContent = '✅ 已复制';
+        setTimeout(() => btn.textContent = '📋 复制CSS变量', 2000);
+      });
+    }
+
+    // 键盘关闭
+    document.addEventListener('keydown', e => {
+      if (e.key === 'Escape') closeDetail();
+    });
+
+    init();
+  </script>
+</body>
+</html>

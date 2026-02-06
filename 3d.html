@@ -1,0 +1,3852 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>风格宇宙 · Style Universe</title>
+  <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&family=Noto+Sans+SC:wght@300;400;700;900&display=swap" rel="stylesheet">
+  <style>
+    :root {
+      --accent: #7c5cff;
+      --accent2: #35d1ff;
+      --bg: #050508;
+    }
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      overflow: hidden;
+      background: var(--bg);
+      font-family: 'Noto Sans SC', sans-serif;
+      color: #fff;
+    }
+    #canvas { position: fixed; inset: 0; z-index: 0; }
+
+    /* UI层 */
+    #ui {
+      position: fixed; inset: 0; z-index: 10;
+      pointer-events: none;
+      display: flex; flex-direction: column;
+      align-items: center; justify-content: flex-end;
+      padding-bottom: 40px;
+    }
+    #ui > * { pointer-events: auto; }
+
+    /* 返回按钮 */
+    #back {
+      position: fixed; top: 20px; left: 20px;
+      padding: 12px 20px;
+      background: rgba(0,0,0,0.6);
+      backdrop-filter: blur(10px);
+      border: 1px solid rgba(255,255,255,0.1);
+      border-radius: 12px;
+      color: #fff;
+      text-decoration: none;
+      font-size: 14px;
+      transition: all 0.3s;
+      z-index: 100;
+    }
+    #back:hover { background: rgba(255,255,255,0.1); transform: translateX(-3px); }
+
+    /* 统计 */
+    #stats {
+      position: fixed; top: 20px; right: 20px;
+      text-align: right;
+      font-size: 12px;
+      color: rgba(255,255,255,0.4);
+      z-index: 100;
+    }
+    #stats .count {
+      font-size: 36px;
+      font-weight: 900;
+      font-family: 'Orbitron', sans-serif;
+      color: #fff;
+      text-shadow: 0 0 30px var(--accent);
+    }
+    #stats .collected {
+      margin-top: 8px;
+      font-size: 11px;
+    }
+
+    /* 历史收藏 */
+    #collection {
+      position: fixed;
+      left: 15px;
+      top: 80px;
+      bottom: 80px;
+      width: 50px;
+      display: flex;
+      flex-direction: column;
+      gap: 8px;
+      overflow-y: auto;
+      padding: 5px;
+      z-index: 100;
+    }
+    #collection::-webkit-scrollbar { width: 3px; }
+    #collection::-webkit-scrollbar-thumb { background: rgba(255,255,255,0.2); border-radius: 3px; }
+    .collection-item {
+      width: 40px; height: 40px;
+      border-radius: 10px;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 18px;
+      cursor: pointer;
+      transition: all 0.3s;
+      background: rgba(0,0,0,0.5);
+      border: 2px solid rgba(255,255,255,0.2);
+      backdrop-filter: blur(5px);
+    }
+    .collection-item:hover {
+      transform: scale(1.15);
+      box-shadow: 0 0 20px var(--accent);
+    }
+    .collection-item.ssr { border-color: #ffd700; box-shadow: 0 0 15px #ffd70050; }
+    .collection-item.sr { border-color: #a855f7; box-shadow: 0 0 10px #a855f750; }
+
+    /* 抽卡按钮 */
+    #pull-btn {
+      padding: 20px 70px;
+      font-size: 22px;
+      font-weight: 700;
+      letter-spacing: 4px;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 50px;
+      cursor: pointer;
+      box-shadow:
+        0 0 40px var(--accent),
+        0 0 80px var(--accent),
+        0 5px 30px rgba(0,0,0,0.5);
+      transition: all 0.3s;
+      text-shadow: 0 2px 10px rgba(0,0,0,0.3);
+    }
+    #pull-btn:hover {
+      transform: scale(1.05);
+      box-shadow:
+        0 0 60px var(--accent),
+        0 0 120px var(--accent),
+        0 5px 40px rgba(0,0,0,0.5);
+    }
+    #pull-btn.hidden {
+      opacity: 0;
+      pointer-events: none;
+      transform: scale(0.8);
+    }
+
+    /* 卡牌展示面板 */
+    #card-panel {
+      position: fixed;
+      inset: 0;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      opacity: 0;
+      pointer-events: none;
+      transition: opacity 0.5s;
+      z-index: 50;
+    }
+    #card-panel.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    .card-container {
+      perspective: 1500px;
+    }
+    .card {
+      width: 300px;
+      height: 420px;
+      position: relative;
+      transform-style: preserve-3d;
+      transition: transform 1s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+    }
+    .card.flipped { transform: rotateY(180deg); }
+    .card-face {
+      position: absolute;
+      inset: 0;
+      backface-visibility: hidden;
+      border-radius: 20px;
+      overflow: hidden;
+    }
+    .card-back {
+      background: linear-gradient(135deg, #1a1a2e, #16213e);
+      border: 3px solid rgba(255,255,255,0.1);
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      font-size: 60px;
+    }
+    .card-back::before {
+      content: '';
+      position: absolute;
+      inset: 10px;
+      border: 2px solid rgba(255,255,255,0.1);
+      border-radius: 15px;
+    }
+    .card-front {
+      transform: rotateY(180deg);
+      background: linear-gradient(180deg, var(--bg) 0%, #0a0a15 100%);
+      border: 3px solid var(--accent);
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      padding: 25px;
+      box-shadow: 0 0 40px var(--accent), inset 0 0 60px rgba(0,0,0,0.5);
+    }
+    .card-front.ssr {
+      border-color: #ffd700;
+      box-shadow: 0 0 60px #ffd700, 0 0 120px #ff6b0080, inset 0 0 60px rgba(255,200,0,0.1);
+    }
+    .card-front.sr {
+      border-color: #a855f7;
+      box-shadow: 0 0 50px #a855f7, inset 0 0 60px rgba(168,85,247,0.1);
+    }
+    .card-rarity {
+      padding: 6px 20px;
+      border-radius: 20px;
+      font-size: 12px;
+      font-weight: 700;
+      letter-spacing: 3px;
+      margin-bottom: 15px;
+    }
+    .card-rarity.ssr {
+      background: linear-gradient(90deg, #ffd700, #ff6b00);
+      color: #000;
+      animation: ssrPulse 1.5s ease-in-out infinite;
+    }
+    .card-rarity.sr { background: linear-gradient(90deg, #c084fc, #a855f7); }
+    .card-rarity.r { background: linear-gradient(90deg, #60a5fa, #3b82f6); }
+    .card-rarity.n { background: rgba(255,255,255,0.15); }
+    @keyframes ssrPulse {
+      0%, 100% { box-shadow: 0 0 20px #ffd700; }
+      50% { box-shadow: 0 0 40px #ff6b00, 0 0 60px #ffd700; }
+    }
+    .card-icon {
+      font-size: 80px;
+      margin: 20px 0;
+      filter: drop-shadow(0 0 20px var(--accent));
+    }
+    .card-name {
+      font-size: 28px;
+      font-weight: 900;
+      text-align: center;
+      text-shadow: 0 0 20px var(--accent);
+      margin-bottom: 5px;
+    }
+    .card-name-cn {
+      font-size: 16px;
+      opacity: 0.7;
+      margin-bottom: 15px;
+    }
+    .card-desc {
+      font-size: 13px;
+      text-align: center;
+      opacity: 0.6;
+      line-height: 1.6;
+      padding: 0 10px;
+      flex: 1;
+    }
+    .card-tags {
+      display: flex;
+      gap: 8px;
+      flex-wrap: wrap;
+      justify-content: center;
+      margin-top: auto;
+    }
+    .card-tag {
+      padding: 4px 12px;
+      background: rgba(255,255,255,0.08);
+      border: 1px solid rgba(255,255,255,0.15);
+      border-radius: 15px;
+      font-size: 11px;
+    }
+
+    /* 继续按钮 */
+    #continue-btn {
+      position: fixed;
+      bottom: 40px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 16px 50px;
+      font-size: 16px;
+      font-weight: 700;
+      color: #fff;
+      background: linear-gradient(135deg, var(--accent), var(--accent2));
+      border: none;
+      border-radius: 30px;
+      cursor: pointer;
+      opacity: 0;
+      pointer-events: none;
+      transition: all 0.3s;
+      box-shadow: 0 0 30px var(--accent);
+      z-index: 60;
+    }
+    #continue-btn.show {
+      opacity: 1;
+      pointer-events: auto;
+    }
+    #continue-btn:hover {
+      transform: translateX(-50%) scale(1.05);
+    }
+
+    /* 当前风格名称 */
+    #current-style {
+      position: fixed;
+      top: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      padding: 8px 20px;
+      background: rgba(0,0,0,0.5);
+      backdrop-filter: blur(10px);
+      border-radius: 20px;
+      font-size: 13px;
+      color: rgba(255,255,255,0.5);
+      opacity: 0;
+      transition: opacity 0.5s;
+      z-index: 100;
+    }
+    #current-style.show { opacity: 1; }
+
+    /* 提示文字 */
+    #hint {
+      position: fixed;
+      top: 40%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      font-size: 14px;
+      color: rgba(255,255,255,0.2);
+      letter-spacing: 3px;
+      transition: opacity 0.5s;
+    }
+    #hint.hidden { opacity: 0; }
+
+    /* 闪光效果 */
+    #flash {
+      position: fixed;
+      inset: 0;
+      background: radial-gradient(circle at center, var(--accent) 0%, transparent 70%);
+      opacity: 0;
+      pointer-events: none;
+      z-index: 40;
+      transition: opacity 0.2s;
+    }
+    #flash.ssr { background: radial-gradient(circle at center, #ffd700 0%, #ff6b00 30%, transparent 70%); }
+    #flash.sr { background: radial-gradient(circle at center, #a855f7 0%, #7c3aed 30%, transparent 70%); }
+    #flash.show { opacity: 0.6; }
+
+    /* 风格总数 */
+    #total-info {
+      position: fixed;
+      bottom: 15px;
+      right: 20px;
+      font-size: 11px;
+      color: rgba(255,255,255,0.25);
+    }
+  </style>
+</head>
+<body>
+  <canvas id="canvas"></canvas>
+  <div id="flash"></div>
+
+  <a id="back" href="index.html">← 返回 2D</a>
+
+  <div id="stats">
+    <div class="count" id="pull-count">0</div>
+    <div>次抽取</div>
+    <div class="collected">已收集 <span id="collected-count">0</span> / <span id="total-styles">0</span></div>
+  </div>
+
+  <div id="collection"></div>
+
+  <div id="current-style"></div>
+
+  <div id="hint">点击下方按钮开始探索风格宇宙</div>
+
+  <div id="ui">
+    <button id="pull-btn">✦ 抽 取 ✦</button>
+  </div>
+
+  <div id="card-panel">
+    <div class="card-container">
+      <div class="card" id="card">
+        <div class="card-face card-back">✦</div>
+        <div class="card-face card-front" id="card-front">
+          <div class="card-rarity" id="card-rarity">SSR</div>
+          <div class="card-icon" id="card-icon">💎</div>
+          <div class="card-name" id="card-name">Glassmorphism</div>
+          <div class="card-name-cn" id="card-name-cn">玻璃拟态</div>
+          <div class="card-desc" id="card-desc">描述</div>
+          <div class="card-tags" id="card-tags"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <button id="continue-btn">继 续 探 索</button>
+
+  <div id="total-info"></div>
+
+  <script type="importmap">
+  {
+    "imports": {
+      "three": "https://unpkg.com/three@0.160.0/build/three.module.js",
+      "three/addons/": "https://unpkg.com/three@0.160.0/examples/jsm/"
+    }
+  }
+  </script>
+
+  <script type="module">
+    import * as THREE from 'three';
+    import { EffectComposer } from 'three/addons/postprocessing/EffectComposer.js';
+    import { RenderPass } from 'three/addons/postprocessing/RenderPass.js';
+    import { UnrealBloomPass } from 'three/addons/postprocessing/UnrealBloomPass.js';
+    // ==================== 内联 Shader 系统 ====================
+
+    // 缓动函数
+    const Ease = {
+      breathe(t, speed = 1) { return (Math.sin(t * speed) + 1) / 2; },
+      bounceOut(t) {
+        if (t < 1/2.75) return 7.5625*t*t;
+        if (t < 2/2.75) { t-=1.5/2.75; return 7.5625*t*t+0.75; }
+        if (t < 2.5/2.75) { t-=2.25/2.75; return 7.5625*t*t+0.9375; }
+        t-=2.625/2.75; return 7.5625*t*t+0.984375;
+      },
+    };
+
+    // 噪声 GLSL
+    const noiseGLSL = `
+      vec3 mod289(vec3 x){return x-floor(x*(1.0/289.0))*289.0;}
+      vec4 mod289(vec4 x){return x-floor(x*(1.0/289.0))*289.0;}
+      vec4 permute(vec4 x){return mod289(((x*34.0)+1.0)*x);}
+      vec4 taylorInvSqrt(vec4 r){return 1.79284291400159-0.85373472095314*r;}
+      float snoise(vec3 v){
+        const vec2 C=vec2(1.0/6.0,1.0/3.0);const vec4 D=vec4(0.0,0.5,1.0,2.0);
+        vec3 i=floor(v+dot(v,C.yyy));vec3 x0=v-i+dot(i,C.xxx);
+        vec3 g=step(x0.yzx,x0.xyz);vec3 l=1.0-g;
+        vec3 i1=min(g.xyz,l.zxy);vec3 i2=max(g.xyz,l.zxy);
+        vec3 x1=x0-i1+C.xxx;vec3 x2=x0-i2+C.yyy;vec3 x3=x0-D.yyy;
+        i=mod289(i);
+        vec4 p=permute(permute(permute(i.z+vec4(0.0,i1.z,i2.z,1.0))+i.y+vec4(0.0,i1.y,i2.y,1.0))+i.x+vec4(0.0,i1.x,i2.x,1.0));
+        float n_=0.142857142857;vec3 ns=n_*D.wyz-D.xzx;
+        vec4 j=p-49.0*floor(p*ns.z*ns.z);vec4 x_=floor(j*ns.z);vec4 y_=floor(j-7.0*x_);
+        vec4 x=x_*ns.x+ns.yyyy;vec4 y=y_*ns.x+ns.yyyy;vec4 h=1.0-abs(x)-abs(y);
+        vec4 b0=vec4(x.xy,y.xy);vec4 b1=vec4(x.zw,y.zw);
+        vec4 s0=floor(b0)*2.0+1.0;vec4 s1=floor(b1)*2.0+1.0;
+        vec4 sh=-step(h,vec4(0.0));
+        vec4 a0=b0.xzyw+s0.xzyw*sh.xxyy;vec4 a1=b1.xzyw+s1.xzyw*sh.zzww;
+        vec3 p0=vec3(a0.xy,h.x);vec3 p1=vec3(a0.zw,h.y);vec3 p2=vec3(a1.xy,h.z);vec3 p3=vec3(a1.zw,h.w);
+        vec4 norm=taylorInvSqrt(vec4(dot(p0,p0),dot(p1,p1),dot(p2,p2),dot(p3,p3)));
+        p0*=norm.x;p1*=norm.y;p2*=norm.z;p3*=norm.w;
+        vec4 m=max(0.6-vec4(dot(x0,x0),dot(x1,x1),dot(x2,x2),dot(x3,x3)),0.0);m=m*m;
+        return 42.0*dot(m*m,vec4(dot(p0,x0),dot(p1,x1),dot(p2,x2),dot(p3,x3)));
+      }
+    `;
+
+    // Shader 材质工厂
+    function createFluidMat(c1, c2, opts={}) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uColor1:{value:new THREE.Color(c1)}, uColor2:{value:new THREE.Color(c2)}, uNS:{value:opts.ns||1.5}, uSpd:{value:opts.spd||0.4}, uDef:{value:opts.def||0.8}, uOp:{value:opts.op||0.7} },
+        vertexShader: `uniform float uTime,uNS,uSpd,uDef;varying vec3 vN,vP;varying float vD;${noiseGLSL}
+          void main(){vN=normal;vP=position;float n=snoise(position*uNS+uTime*uSpd);vD=n;gl_Position=projectionMatrix*modelViewMatrix*vec4(position+normal*n*uDef,1.0);}`,
+        fragmentShader: `uniform vec3 uColor1,uColor2;uniform float uTime,uOp;varying vec3 vN,vP;varying float vD;
+          void main(){vec3 l=normalize(vec3(1,1,1));float d=max(dot(vN,l),0.0)*0.6+0.4;float f=pow(1.0-max(dot(vN,vec3(0,0,1)),0.0),2.0);vec3 c=mix(uColor1,uColor2,vD*0.5+0.5)*d;c+=f*uColor2*0.5;gl_FragColor=vec4(c,uOp);}`,
+        transparent:true, side:THREE.DoubleSide
+      });
+    }
+    function createGlowMat(c1, c2, opts={}) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uColor1:{value:new THREE.Color(c1)}, uColor2:{value:new THREE.Color(c2)}, uPS:{value:opts.ps||2}, uGI:{value:opts.gi||1.5} },
+        vertexShader: `varying vec3 vN,vW;void main(){vN=normalize(normalMatrix*normal);vW=(modelMatrix*vec4(position,1.0)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+        fragmentShader: `uniform float uTime,uPS,uGI;uniform vec3 uColor1,uColor2;varying vec3 vN,vW;
+          void main(){vec3 v=normalize(cameraPosition-vW);float f=pow(1.0-max(dot(vN,v),0.0),3.0);float p=sin(uTime*uPS)*0.3+0.7;vec3 c=mix(uColor1,uColor2,f);float g=f*uGI*p;gl_FragColor=vec4(c*(1.0+g),0.6+f*0.4);}`,
+        transparent:true
+      });
+    }
+    function createAuroraMat(c1, c2) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uColor1:{value:new THREE.Color(c1)}, uColor2:{value:new THREE.Color(c2)} },
+        vertexShader: `uniform float uTime;varying vec2 vUv;varying float vE;${noiseGLSL}
+          void main(){vUv=uv;vec3 p=position;float n=snoise(vec3(p.x*0.05,p.y*0.1,uTime*0.3))*3.0;p.z+=n;vE=n;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}`,
+        fragmentShader: `uniform vec3 uColor1,uColor2;uniform float uTime;varying vec2 vUv;varying float vE;
+          void main(){vec3 c=mix(uColor1,uColor2,vUv.x+sin(uTime+vUv.y*3.0)*0.3);float a=0.15+0.1*sin(vUv.x*10.0+uTime);a*=smoothstep(0.0,0.3,vUv.y)*smoothstep(1.0,0.7,vUv.y);gl_FragColor=vec4(c*1.5,a);}`,
+        transparent:true, side:THREE.DoubleSide, depthWrite:false
+      });
+    }
+    function createHoloMat(opts={}) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uOp:{value:opts.op||0.6} },
+        vertexShader: `varying vec3 vN,vW;void main(){vN=normalize(normalMatrix*normal);vW=(modelMatrix*vec4(position,1.0)).xyz;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+        fragmentShader: `uniform float uTime,uOp;varying vec3 vN,vW;
+          void main(){vec3 v=normalize(cameraPosition-vW);float f=pow(1.0-max(dot(vN,v),0.0),2.0);float a=dot(vN,v);vec3 r;r.r=0.5+0.5*sin(a*6.28+uTime*2.0);r.g=0.5+0.5*sin(a*6.28+uTime*2.0+2.094);r.b=0.5+0.5*sin(a*6.28+uTime*2.0+4.189);gl_FragColor=vec4(r*(0.8+f*1.2),uOp+f*0.3);}`,
+        transparent:true
+      });
+    }
+    function createGlitchMat(c1, c2, opts={}) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uColor1:{value:new THREE.Color(c1)}, uColor2:{value:new THREE.Color(c2)}, uI:{value:opts.i||0.5} },
+        vertexShader: `uniform float uTime,uI;varying vec2 vUv;varying vec3 vP;
+          void main(){vUv=uv;vP=position;vec3 p=position;float g=step(0.95,fract(sin(floor(uTime*20.0)*43758.5453)))*uI;p.x+=g*sin(p.y*10.0+uTime*50.0)*2.0;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}`,
+        fragmentShader: `uniform float uTime;uniform vec3 uColor1,uColor2;uniform float uI;varying vec2 vUv;varying vec3 vP;
+          void main(){float s=sin(vP.y*50.0+uTime*10.0)*0.1;float r=step(0.97,fract(sin(floor(uTime*15.0+vP.y)*12345.6789)))*uI;vec3 c;c.r=mix(uColor1.r,uColor2.r,vUv.x+r);c.g=mix(uColor1.g,uColor2.g,vUv.x);c.b=mix(uColor1.b,uColor2.b,vUv.x-r);c+=s;gl_FragColor=vec4(c,0.8);}`,
+        transparent:true, side:THREE.DoubleSide
+      });
+    }
+    function createWaterMat(c1, c2) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uColor1:{value:new THREE.Color(c1)}, uColor2:{value:new THREE.Color(c2)} },
+        vertexShader: `uniform float uTime;varying vec2 vUv;varying float vE;${noiseGLSL}
+          void main(){vUv=uv;vec3 p=position;p.z+=sin(p.x*0.3+uTime)*1.5+sin(p.y*0.2+uTime*0.7)+snoise(vec3(p.xy*0.1,uTime*0.5))*1.5;vE=p.z;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}`,
+        fragmentShader: `uniform vec3 uColor1,uColor2;uniform float uTime;varying vec2 vUv;varying float vE;
+          void main(){vec3 c=mix(uColor1,uColor2,vE*0.15+0.5);c+=smoothstep(1.5,2.0,vE)*0.5;gl_FragColor=vec4(c,0.4+0.1*sin(vUv.x*20.0+uTime));}`,
+        transparent:true, side:THREE.DoubleSide
+      });
+    }
+    function createFireMat(c1, c2) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uColor1:{value:new THREE.Color(c1)}, uColor2:{value:new THREE.Color(c2)} },
+        vertexShader: `uniform float uTime;varying vec2 vUv;${noiseGLSL}
+          void main(){vUv=uv;vec3 p=position;p+=normal*snoise(vec3(p.xy*2.0-vec2(0,uTime*2.0),uTime*0.5))*0.5;gl_Position=projectionMatrix*modelViewMatrix*vec4(p,1.0);}`,
+        fragmentShader: `uniform float uTime;uniform vec3 uColor1,uColor2;varying vec2 vUv;
+          void main(){float g=1.0-vUv.y;vec3 c=mix(uColor2,uColor1,g)*(1.0+g*1.5);gl_FragColor=vec4(c,g*0.8);}`,
+        transparent:true, side:THREE.DoubleSide, depthWrite:false
+      });
+    }
+    function createInkMat(c1, c2) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uColor1:{value:new THREE.Color(c1)}, uColor2:{value:new THREE.Color(c2)} },
+        vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+        fragmentShader: `uniform float uTime;uniform vec3 uColor1,uColor2;varying vec2 vUv;${noiseGLSL}
+          void main(){float n1=snoise(vec3(vUv*3.0,uTime*0.2));float n2=snoise(vec3(vUv*6.0,uTime*0.1+100.0));float ink=smoothstep(0.0,0.5,n1*0.5+0.5);vec3 c=mix(uColor1,uColor2,ink+n2*0.3);c+=0.3*(1.0-smoothstep(0.3,0.5,abs(n1)));gl_FragColor=vec4(c,0.4+ink*0.3);}`,
+        transparent:true, side:THREE.DoubleSide
+      });
+    }
+    function createCrystalMat(c1, c2) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uColor1:{value:new THREE.Color(c1)}, uColor2:{value:new THREE.Color(c2)} },
+        vertexShader: `varying vec3 vN,vW,vL;void main(){vN=normalize(normalMatrix*normal);vW=(modelMatrix*vec4(position,1.0)).xyz;vL=position;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+        fragmentShader: `uniform float uTime;uniform vec3 uColor1,uColor2;varying vec3 vN,vW,vL;${noiseGLSL}
+          void main(){vec3 v=normalize(cameraPosition-vW);float f=pow(1.0-max(dot(vN,v),0.0),3.0);float veins=snoise(vL*2.0+uTime*0.1);vec3 c=mix(uColor1,uColor2,veins*0.5+0.5);c+=pow(max(dot(reflect(-v,vN),vec3(0.5,1,0.5)),0.0),20.0)*0.5;c+=f*uColor2*0.8;gl_FragColor=vec4(c,0.7+f*0.3);}`,
+        transparent:true
+      });
+    }
+    function createMatrixMat(color) {
+      return new THREE.ShaderMaterial({
+        uniforms: { uTime:{value:0}, uColor:{value:new THREE.Color(color)} },
+        vertexShader: `varying vec2 vUv;void main(){vUv=uv;gl_Position=projectionMatrix*modelViewMatrix*vec4(position,1.0);}`,
+        fragmentShader: `uniform float uTime;uniform vec3 uColor;varying vec2 vUv;
+          float random(vec2 st){return fract(sin(dot(st,vec2(12.9898,78.233)))*43758.5453);}
+          void main(){vec2 g=floor(vUv*vec2(30,40));float r=random(g);float s=r*3.0+1.0;float ch=step(0.5,fract(r*100.0+uTime*s));float b=ch*(0.5+0.5*sin(uTime*s+r*6.28));float f=1.0-vUv.y;gl_FragColor=vec4(uColor*b*f*1.5,b*f*0.8);}`,
+        transparent:true, side:THREE.DoubleSide, depthWrite:false
+      });
+    }
+
+    // 风格 → shader 映射
+    function getStyleShaderMaterial(id, a, a2) {
+      const M = {
+        glass:()=>createFluidMat(a,a2,{def:1,op:0.5}), neon:()=>createGlowMat(a,a2,{ps:3,gi:2}),
+        cyber:()=>createGlowMat(a,a2,{ps:4,gi:2.5}), aurora:()=>createAuroraMat(a,a2),
+        japanese:()=>createInkMat(a,a2), gothic:()=>createCrystalMat(a,a2),
+        holographic:()=>createHoloMat(), glitch:()=>createGlitchMat(a,a2,{i:0.8}),
+        vaporwave:()=>createFluidMat(a,a2,{spd:0.2,def:0.5}), pixel:()=>createGlowMat(a,a2,{ps:8,gi:1}),
+        matrix:()=>createMatrixMat(a), terminal:()=>createMatrixMat(a),
+        chinese:()=>createInkMat(a,a2), ocean:()=>createWaterMat(a,a2),
+        romantic:()=>createFluidMat(a,a2,{def:0.6,op:0.6}), steampunk:()=>createCrystalMat(a,a2),
+        sunset:()=>createFireMat(a,a2), winter:()=>createCrystalMat('#aaccff','#eeeeff'),
+        forest:()=>createFluidMat(a,a2,{def:0.5}), kawaii:()=>createFluidMat(a,a2,{def:1.2,spd:0.6,op:0.6}),
+        artdeco:()=>createCrystalMat(a,a2), gradient:()=>createFluidMat(a,a2,{def:1.5,spd:0.5}),
+        synthwave:()=>createGlowMat(a,a2,{ps:2,gi:1.5}), zen:()=>createInkMat(a,a2),
+        midnight:()=>createGlowMat('#191970','#ffffff',{ps:0.5,gi:1}),
+        watercolor:()=>createInkMat(a,a2), desert:()=>createFireMat(a,a2),
+        spring:()=>createFluidMat(a,a2,{def:0.6}), autumn:()=>createFireMat(a,a2),
+        liminalspace:()=>createGlitchMat('#c0c0c0','#808080',{i:0.3}),
+        weirdcore:()=>createGlitchMat(a,a2,{i:1}), dreamcore:()=>createFluidMat(a,a2,{def:1,spd:0.2,op:0.4}),
+        ios:()=>createFluidMat(a,a2,{def:0.3,op:0.5}), material:()=>createFluidMat(a,a2,{def:0.4}),
+        spotify:()=>createGlowMat(a,'#111',{ps:2}), gaming:()=>createGlowMat(a,a2,{ps:5,gi:2}),
+        music:()=>createGlowMat(a,a2,{ps:3}), fashion:()=>createCrystalMat('#111',a2),
+        marble:()=>createCrystalMat(a,a2), metal:()=>createCrystalMat(a,a2),
+        indian:()=>createFluidMat(a,a2,{def:0.7}), arabian:()=>createGlowMat(a,a2,{ps:1,gi:1.5}),
+        luxury:()=>createCrystalMat(a,a2), stormy:()=>createGlitchMat('#333',a2,{i:0.6}),
+        frutiger:()=>createFluidMat(a,a2,{def:0.5,op:0.35}), solarpunk:()=>createFluidMat(a,a2,{def:0.4}),
+        darkacademia:()=>createCrystalMat(a,a2), victorian:()=>createCrystalMat(a,a2),
+        memphis:()=>createGlowMat(a,a2,{ps:4}), popart:()=>createGlowMat(a,a2,{ps:6,gi:2}),
+        energetic:()=>createFireMat(a,a2), sports:()=>createFireMat(a,a2),
+        mysterious:()=>createGlowMat(a,a2,{ps:1.5,gi:2}), coral:()=>createWaterMat(a,a2),
+        mediterranean:()=>createWaterMat(a,a2), rainy:()=>createWaterMat(a,a2), melancholy:()=>createWaterMat(a,a2),
+        dawn:()=>createFireMat(a,a2), dusk:()=>createFireMat(a,a2), summer:()=>createFireMat(a,a2),
+        cheerful:()=>createGlowMat(a,a2,{ps:3,gi:1.5}),
+        neumorphism:()=>createFluidMat(a,a2,{def:0.3,op:0.5}), clay:()=>createFluidMat(a,a2,{def:1.5,spd:0.8,op:0.7}),
+        // 补充
+        github:()=>createGlowMat(a,a2,{ps:1,gi:1}), discord:()=>createGlowMat(a,a2,{ps:2,gi:1.5}),
+        figma:()=>createGlowMat(a,a2,{ps:3,gi:1.5}), stripe:()=>createGlowMat(a,a2,{ps:1.5,gi:1.5}),
+        fluent:()=>createFluidMat(a,a2,{def:0.3,op:0.4}), notion:()=>createFluidMat('#fff','#888',{def:0.2,op:0.3}),
+        linear:()=>createGlowMat(a,a2,{ps:1.5,gi:1.2}), korean:()=>createFluidMat(a,a2,{def:0.4,op:0.5}),
+        african:()=>createCrystalMat(a,a2), greek:()=>createCrystalMat(a,'#eee'),
+        bauhaus:()=>createGlowMat(a,a2,{ps:2,gi:1}), dieselpunk:()=>createCrystalMat(a,a2),
+        comic:()=>createGlowMat(a,a2,{ps:5,gi:2}), sketch:()=>createFluidMat(a,a2,{def:0.2,op:0.4}),
+        abstract:()=>createFluidMat(a,a2,{def:0.8}), brutal:()=>createGlowMat(a,a2,{ps:4,gi:2}),
+        poster:()=>createGlowMat(a,a2,{ps:3,gi:1.5}), swiss:()=>createGlowMat('#ff0000','#fff',{ps:1,gi:1}),
+        nordic:()=>createFluidMat(a,a2,{def:0.3,op:0.4}), muji:()=>createFluidMat(a,a2,{def:0.2,op:0.3}),
+        mono:()=>createCrystalMat('#fff','#888'), flat:()=>createGlowMat(a,a2,{ps:2,gi:1}),
+        nature:()=>createFluidMat(a,a2,{def:0.5}), wood:()=>createCrystalMat(a,a2),
+        paper:()=>createInkMat(a,a2), leather:()=>createCrystalMat(a,a2),
+        medical:()=>createGlowMat(a,'#fff',{ps:1,gi:1}), education:()=>createFluidMat(a,a2,{def:0.3}),
+        food:()=>createFireMat(a,a2), travel:()=>createGlowMat(a,a2,{ps:2,gi:1.5}),
+        kids:()=>createFluidMat(a,a2,{def:1,spd:0.8,op:0.6}), wedding:()=>createFluidMat(a,a2,{def:0.5,op:0.5}),
+        cottagecore:()=>createFluidMat(a,a2,{def:0.3,op:0.4}), lightacademia:()=>createInkMat(a,a2),
+        handmade:()=>createInkMat(a,a2), sunny:()=>createFireMat(a,a2),
+        foggy:()=>createFluidMat('#ccc','#aaa',{def:0.3,op:0.25}), finance:()=>createGlowMat(a,a2,{ps:2,gi:1}),
+      };
+      return (M[id] || (() => createFluidMat(a, a2)))();
+    }
+
+    // 更新 shader uniforms
+    function updateShaderTime(group, time) {
+      group.traverse(child => {
+        if (child.material && child.material.uniforms && child.material.uniforms.uTime) {
+          child.material.uniforms.uTime.value = time;
+        }
+      });
+    }
+
+    // ==================== 风格数据 ====================
+    const STYLES = [
+      // === P0 核心风格 ===
+      {
+        id: 'glass',
+        name: 'Glassmorphism',
+        nameCN: '玻璃拟态',
+        desc: '半透明磨砂质感，模糊背景，现代科技感的极致体现',
+        tags: ['科技', '现代', '透明'],
+        icon: '💎',
+        rarity: 'SSR',
+        colors: { accent: '#7c5cff', accent2: '#35d1ff', bg: '#050510', ground: '#0a0a20' },
+      },
+      {
+        id: 'neon',
+        name: 'Neon',
+        nameCN: '霓虹灯',
+        desc: '发光的城市美学，夜店都市氛围，赛博夜晚的永恒主题',
+        tags: ['夜店', '发光', '都市'],
+        icon: '💡',
+        rarity: 'SSR',
+        colors: { accent: '#ff00ff', accent2: '#00ff00', bg: '#05000a', ground: '#0a0015' },
+      },
+      {
+        id: 'cyber',
+        name: 'Cyberpunk',
+        nameCN: '赛博朋克',
+        desc: '高科技低生活，霓虹与黑暗交织的未来都市幻想',
+        tags: ['科幻', '未来', '霓虹'],
+        icon: '🌃',
+        rarity: 'SSR',
+        colors: { accent: '#00ffff', accent2: '#ff00ff', bg: '#050008', ground: '#080015' },
+      },
+      {
+        id: 'aurora',
+        name: 'Aurora',
+        nameCN: '极光',
+        desc: '北极夜空的神秘色彩，波动流淌的梦幻光影',
+        tags: ['梦幻', '流动', '自然'],
+        icon: '✨',
+        rarity: 'SSR',
+        colors: { accent: '#00ff7f', accent2: '#9370db', bg: '#030810', ground: '#051020' },
+      },
+      {
+        id: 'japanese',
+        name: 'Japanese',
+        nameCN: '和风',
+        desc: '侘寂美学的东方意境，樱花纷飞的诗意空间',
+        tags: ['日式', '禅意', '樱花'],
+        icon: '🌸',
+        rarity: 'SSR',
+        colors: { accent: '#ff6b9d', accent2: '#ffb7c5', bg: '#0a0508', ground: '#150810' },
+      },
+      {
+        id: 'gothic',
+        name: 'Gothic',
+        nameCN: '哥特',
+        desc: '暗红与黑色交织，中世纪的神秘与恐怖美学',
+        tags: ['暗黑', '神秘', '中世纪'],
+        icon: '🦇',
+        rarity: 'SSR',
+        colors: { accent: '#8b0000', accent2: '#4a0080', bg: '#050505', ground: '#100508' },
+      },
+      {
+        id: 'vaporwave',
+        name: 'Vaporwave',
+        nameCN: '蒸汽波',
+        desc: '80年代复古未来主义，粉蓝渐变的怀旧梦境',
+        tags: ['复古', '80年代', '梦幻'],
+        icon: '🌴',
+        rarity: 'SR',
+        colors: { accent: '#ff71ce', accent2: '#01cdfe', bg: '#0a0518', ground: '#150820' },
+      },
+      {
+        id: 'pixel',
+        name: 'Pixel',
+        nameCN: '像素风',
+        desc: '8-bit游戏的复古情怀，像素点阵的独特魅力',
+        tags: ['游戏', '复古', '8bit'],
+        icon: '👾',
+        rarity: 'SR',
+        colors: { accent: '#00ff00', accent2: '#ffff00', bg: '#080810', ground: '#101020' },
+      },
+      {
+        id: 'glitch',
+        name: 'Glitch',
+        nameCN: '故障艺术',
+        desc: 'RGB偏移与画面撕裂，数字世界的美丽错误',
+        tags: ['故障', '数字', '艺术'],
+        icon: '📺',
+        rarity: 'SSR',
+        colors: { accent: '#ff00ff', accent2: '#00ffff', bg: '#080808', ground: '#101015' },
+      },
+      {
+        id: 'matrix',
+        name: 'Matrix',
+        nameCN: '黑客帝国',
+        desc: '绿色代码雨倾泻而下，数字世界的真相觉醒',
+        tags: ['黑客', '代码', '数字'],
+        icon: '🖥️',
+        rarity: 'SR',
+        colors: { accent: '#00ff00', accent2: '#00aa00', bg: '#000800', ground: '#001000' },
+      },
+      // === P1 重要风格 ===
+      {
+        id: 'holographic',
+        name: 'Holographic',
+        nameCN: '全息',
+        desc: '彩虹渐变的金属光泽，未来科技的投影美学',
+        tags: ['未来', '渐变', '光泽'],
+        icon: '🔮',
+        rarity: 'SSR',
+        colors: { accent: '#ff6ec7', accent2: '#7df9ff', bg: '#080508', ground: '#100810' },
+      },
+      {
+        id: 'chinese',
+        name: 'Chinese',
+        nameCN: '国风',
+        desc: '朱红与金色交相辉映，传统纹样的东方韵味',
+        tags: ['中式', '传统', '古典'],
+        icon: '🏮',
+        rarity: 'SR',
+        colors: { accent: '#ff3333', accent2: '#ffd700', bg: '#0a0505', ground: '#150808' },
+      },
+      {
+        id: 'ocean',
+        name: 'Ocean',
+        nameCN: '海洋',
+        desc: '深海的神秘呼唤，水母漂浮的梦幻蓝境',
+        tags: ['海洋', '深海', '流动'],
+        icon: '🌊',
+        rarity: 'SR',
+        colors: { accent: '#0099cc', accent2: '#00ffcc', bg: '#030810', ground: '#051520' },
+      },
+      {
+        id: 'romantic',
+        name: 'Romantic',
+        nameCN: '浪漫',
+        desc: '粉色与爱心的甜蜜氛围，幸福时刻的美好象征',
+        tags: ['浪漫', '甜蜜', '粉色'],
+        icon: '💕',
+        rarity: 'SR',
+        colors: { accent: '#ff69b4', accent2: '#ffb6c1', bg: '#100508', ground: '#180a10' },
+      },
+      {
+        id: 'steampunk',
+        name: 'Steampunk',
+        nameCN: '蒸汽朋克',
+        desc: '维多利亚时代的机械美学，齿轮与铜管的幻想',
+        tags: ['机械', '复古', '工业'],
+        icon: '⚙️',
+        rarity: 'SR',
+        colors: { accent: '#b8860b', accent2: '#cd7f32', bg: '#0a0805', ground: '#151008' },
+      },
+      {
+        id: 'sunset',
+        name: 'Sunset',
+        nameCN: '日落',
+        desc: '黄昏的温暖橙红，一天结束前最浪漫的时刻',
+        tags: ['日落', '浪漫', '温暖'],
+        icon: '🌅',
+        rarity: 'R',
+        colors: { accent: '#ff6347', accent2: '#ffd700', bg: '#100805', ground: '#201008' },
+      },
+      {
+        id: 'winter',
+        name: 'Winter',
+        nameCN: '冬天',
+        desc: '冰蓝白雪的纯净世界，宁静祥和的银白季节',
+        tags: ['冬天', '纯净', '雪花'],
+        icon: '❄️',
+        rarity: 'R',
+        colors: { accent: '#60a5fa', accent2: '#c4b5fd', bg: '#050810', ground: '#081020' },
+      },
+      {
+        id: 'forest',
+        name: 'Forest',
+        nameCN: '森林',
+        desc: '深绿暗调的神秘林地，萤火虫点亮的魔法空间',
+        tags: ['森林', '神秘', '萤火虫'],
+        icon: '🌲',
+        rarity: 'R',
+        colors: { accent: '#228b22', accent2: '#7cfc00', bg: '#030805', ground: '#051008' },
+      },
+      {
+        id: 'kawaii',
+        name: 'Kawaii',
+        nameCN: '可爱粉彩',
+        desc: '马卡龙配色的治愈系，圆润可爱的日系美学',
+        tags: ['可爱', '日系', '粉彩'],
+        icon: '🎀',
+        rarity: 'SR',
+        colors: { accent: '#ffb7c5', accent2: '#b19cd9', bg: '#100810', ground: '#180c18' },
+      },
+      {
+        id: 'artdeco',
+        name: 'Art Deco',
+        nameCN: '装饰艺术',
+        desc: '几何对称与金色装饰，爵士时代的奢华优雅',
+        tags: ['奢华', '几何', '金色'],
+        icon: '🏛️',
+        rarity: 'SR',
+        colors: { accent: '#d4af37', accent2: '#ffd700', bg: '#08080f', ground: '#101018' },
+      },
+      // === 更多风格 ===
+      { id:'gradient', name:'Gradient', nameCN:'渐变流体', desc:'多彩渐变的流动艺术，色彩的交融盛宴', tags:['渐变','流动'], icon:'🌈', rarity:'R', colors:{ accent:'#667eea', accent2:'#f093fb', bg:'#080510', ground:'#100818' } },
+      { id:'synthwave', name:'Synthwave', nameCN:'合成波', desc:'紫红落日的电子梦境，复古未来的声光', tags:['复古','霓虹'], icon:'🎹', rarity:'SR', colors:{ accent:'#f72585', accent2:'#7209b7', bg:'#0a0510', ground:'#150818' } },
+      { id:'zen', name:'Zen', nameCN:'禅意', desc:'枯山水的极简静谧，内心宁静的东方哲学', tags:['禅意','平静'], icon:'☯️', rarity:'R', colors:{ accent:'#8fbc8f', accent2:'#d2b48c', bg:'#080a08', ground:'#101510' } },
+      { id:'midnight', name:'Midnight', nameCN:'午夜', desc:'深夜星空的神秘时刻，万籁俱寂的深邃', tags:['午夜','星空'], icon:'🌙', rarity:'R', colors:{ accent:'#191970', accent2:'#4b0082', bg:'#030508', ground:'#050810' } },
+      { id:'watercolor', name:'Watercolor', nameCN:'水彩', desc:'柔和晕染的艺术气质，透明层叠的诗意', tags:['艺术','手绘'], icon:'🎨', rarity:'SR', colors:{ accent:'#87ceeb', accent2:'#dda0dd', bg:'#080a10', ground:'#101520' } },
+      { id:'terminal', name:'Terminal', nameCN:'终端', desc:'命令行的复古科技感，绿色磷光的呢喃', tags:['代码','终端'], icon:'⌨️', rarity:'R', colors:{ accent:'#00ff00', accent2:'#00aa00', bg:'#000500', ground:'#000a00' } },
+      { id:'desert', name:'Desert', nameCN:'沙漠', desc:'广袤荒原的苍凉之美，金沙飞扬的寂寞', tags:['沙漠','荒凉'], icon:'🏜️', rarity:'N', colors:{ accent:'#daa520', accent2:'#cd853f', bg:'#100a05', ground:'#201508' } },
+      { id:'spring', name:'Spring', nameCN:'春天', desc:'万物复苏的生命力，嫩绿粉色的新芽', tags:['春天','生机'], icon:'🌷', rarity:'R', colors:{ accent:'#98fb98', accent2:'#ffb7c5', bg:'#050a08', ground:'#081510' } },
+      { id:'autumn', name:'Autumn', nameCN:'秋天', desc:'金色落叶的成熟温暖，丰收季节的美丽', tags:['秋天','落叶'], icon:'🍂', rarity:'R', colors:{ accent:'#ff8c00', accent2:'#8b4513', bg:'#100805', ground:'#201008' } },
+      { id:'liminalspace', name:'Liminal Space', nameCN:'阈限空间', desc:'诡异熟悉的过渡空间，介于现实与梦境', tags:['诡异','超现实'], icon:'🚪', rarity:'SSR', colors:{ accent:'#c0c0c0', accent2:'#808080', bg:'#0a0a0a', ground:'#151515' } },
+      // === 品牌系 ===
+      { id:'ios', name:'iOS', nameCN:'苹果风', desc:'毛玻璃效果与圆润图标，苹果设计的优雅简洁', tags:['苹果','简洁'], icon:'🍎', rarity:'SR', colors:{ accent:'#007aff', accent2:'#5856d6', bg:'#0a0a10', ground:'#101520' } },
+      { id:'material', name:'Material You', nameCN:'Material', desc:'Google动态配色系统，Material3的流畅体验', tags:['谷歌','现代'], icon:'🎨', rarity:'SR', colors:{ accent:'#6750a4', accent2:'#d0bcff', bg:'#0a0810', ground:'#151020' } },
+      { id:'github', name:'GitHub', nameCN:'GitHub', desc:'代码托管的数字家园，开发者的绿色贡献图', tags:['代码','社区'], icon:'🐙', rarity:'R', colors:{ accent:'#238636', accent2:'#58a6ff', bg:'#050810', ground:'#0d1117' } },
+      { id:'spotify', name:'Spotify', nameCN:'Spotify', desc:'音乐世界的律动节奏，绿黑配色的声波', tags:['音乐','律动'], icon:'🎵', rarity:'R', colors:{ accent:'#1db954', accent2:'#191414', bg:'#050805', ground:'#121212' } },
+      { id:'discord', name:'Discord', nameCN:'Discord', desc:'游戏社交的紫蓝空间，社区氛围的欢声', tags:['社交','游戏'], icon:'🎧', rarity:'R', colors:{ accent:'#5865f2', accent2:'#eb459e', bg:'#080810', ground:'#2f3136' } },
+      { id:'figma', name:'Figma', nameCN:'Figma', desc:'设计工具的创意画布，多彩暗色的灵感空间', tags:['设计','创意'], icon:'🖌️', rarity:'R', colors:{ accent:'#f24e1e', accent2:'#a259ff', bg:'#080808', ground:'#101010' } },
+      { id:'stripe', name:'Stripe', nameCN:'Stripe', desc:'支付平台的深蓝渐变，安全专业的信任', tags:['支付','专业'], icon:'💳', rarity:'R', colors:{ accent:'#635bff', accent2:'#00d4ff', bg:'#050810', ground:'#0a1020' } },
+      { id:'fluent', name:'Fluent', nameCN:'Fluent', desc:'微软流畅设计的毛玻璃层次感', tags:['微软','流畅'], icon:'🪟', rarity:'R', colors:{ accent:'#0078d4', accent2:'#00bcf2', bg:'#050810', ground:'#0a1020' } },
+      { id:'notion', name:'Notion', nameCN:'Notion', desc:'笔记协作的极简黑白，知识管理的纯净', tags:['笔记','极简'], icon:'📝', rarity:'N', colors:{ accent:'#ffffff', accent2:'#787878', bg:'#0a0a0a', ground:'#151515' } },
+      { id:'linear', name:'Linear', nameCN:'Linear', desc:'项目管理的暗紫极简，高效工具的沉静', tags:['效率','暗色'], icon:'📊', rarity:'R', colors:{ accent:'#5e6ad2', accent2:'#8b5cf6', bg:'#050510', ground:'#0a0818' } },
+      // === 文化系 ===
+      { id:'korean', name:'Korean', nameCN:'韩风', desc:'清新柔和的粉蓝配色，现代简约的亚洲美学', tags:['韩式','清新'], icon:'🇰🇷', rarity:'R', colors:{ accent:'#ffb6c1', accent2:'#87ceeb', bg:'#0a080f', ground:'#151020' } },
+      { id:'indian', name:'Indian', nameCN:'印度风', desc:'香料色彩与曼陀罗图案，热情奔放的异域风情', tags:['印度','热情'], icon:'🪔', rarity:'SR', colors:{ accent:'#ff9933', accent2:'#128807', bg:'#0a0805', ground:'#1a1008' } },
+      { id:'arabian', name:'Arabian', nameCN:'中东风', desc:'波斯纹样与金蓝配色，千一夜的神秘文明', tags:['中东','奢华'], icon:'🕌', rarity:'SR', colors:{ accent:'#1e90ff', accent2:'#ffd700', bg:'#050810', ground:'#0a1020' } },
+      { id:'african', name:'African', nameCN:'非洲风', desc:'部落图案与大地暖色，原始力量的生命赞歌', tags:['非洲','力量'], icon:'🌍', rarity:'R', colors:{ accent:'#cd853f', accent2:'#8b4513', bg:'#0a0805', ground:'#1a1008' } },
+      { id:'greek', name:'Greek', nameCN:'希腊风', desc:'爱琴海蓝白与古典柱式，西方文明的摇篮', tags:['希腊','古典'], icon:'🏛️', rarity:'R', colors:{ accent:'#0066cc', accent2:'#e0e0e0', bg:'#050810', ground:'#0a1520' } },
+      { id:'mediterranean', name:'Mediterranean', nameCN:'地中海', desc:'蓝白阳光海岸的浪漫风情，度假天堂', tags:['度假','阳光'], icon:'🏖️', rarity:'R', colors:{ accent:'#1e90ff', accent2:'#ffffff', bg:'#050a10', ground:'#081520' } },
+      // === 更多复古系 ===
+      { id:'memphis', name:'Memphis', nameCN:'孟菲斯', desc:'80年代后现代的几何撞色视觉冲击', tags:['后现代','撞色'], icon:'🔺', rarity:'SR', colors:{ accent:'#ff6b6b', accent2:'#4ecdc4', bg:'#0a0810', ground:'#151020' } },
+      { id:'bauhaus', name:'Bauhaus', nameCN:'包豪斯', desc:'几何基础与三原色，功能主义设计之源', tags:['几何','功能'], icon:'🔵', rarity:'R', colors:{ accent:'#e63946', accent2:'#457b9d', bg:'#080a0f', ground:'#101520' } },
+      { id:'victorian', name:'Victorian', nameCN:'维多利亚', desc:'华丽暗金的古典优雅，贵族风范的极致', tags:['古典','华丽'], icon:'👑', rarity:'SR', colors:{ accent:'#8b4513', accent2:'#daa520', bg:'#080505', ground:'#100a08' } },
+      { id:'dieselpunk', name:'Dieselpunk', nameCN:'柴油朋克', desc:'二战工业的重型机械，粗犷美学的力量', tags:['工业','粗犷'], icon:'🏭', rarity:'R', colors:{ accent:'#696969', accent2:'#8b4513', bg:'#080808', ground:'#101010' } },
+      // === 更多艺术系 ===
+      { id:'comic', name:'Comic', nameCN:'漫画', desc:'粗黑描边与爆炸文字，视觉张力的动态艺术', tags:['漫画','卡通'], icon:'💥', rarity:'R', colors:{ accent:'#ffff00', accent2:'#ff0000', bg:'#0a0a10', ground:'#151520' } },
+      { id:'sketch', name:'Sketch', nameCN:'素描', desc:'铅笔线条的手绘质感，草图风格的艺术气息', tags:['手绘','线条'], icon:'✏️', rarity:'R', colors:{ accent:'#808080', accent2:'#a0a0a0', bg:'#0a0a0a', ground:'#151515' } },
+      { id:'popart', name:'Pop Art', nameCN:'波普艺术', desc:'大胆撞色的重复图案，安迪沃霍尔的视觉革命', tags:['波普','大胆'], icon:'🍌', rarity:'SR', colors:{ accent:'#ff1493', accent2:'#00ff00', bg:'#0a0508', ground:'#150810' } },
+      { id:'abstract', name:'Abstract', nameCN:'抽象', desc:'非具象的几何形态，现代艺术的自由表达', tags:['抽象','现代'], icon:'🎭', rarity:'R', colors:{ accent:'#ff6347', accent2:'#4169e1', bg:'#08080a', ground:'#101015' } },
+      // === 海报系 ===
+      { id:'brutal', name:'Neo-Brutalism', nameCN:'新粗野主义', desc:'粗黑边框与硬阴影，大胆直接的视觉冲击', tags:['大胆','硬朗'], icon:'🔲', rarity:'R', colors:{ accent:'#ff4500', accent2:'#ffd700', bg:'#101010', ground:'#1a1a1a' } },
+      { id:'poster', name:'Poster', nameCN:'海报风', desc:'强对比块面的视觉冲击力设计表达', tags:['海报','高对比'], icon:'📰', rarity:'R', colors:{ accent:'#ff4500', accent2:'#ffd700', bg:'#080505', ground:'#100a08' } },
+      // === 情绪系 ===
+      { id:'energetic', name:'Energetic', nameCN:'活力', desc:'橙黄配色的动感元素，充满激情的运动感', tags:['活力','动感'], icon:'⚡', rarity:'R', colors:{ accent:'#ff8c00', accent2:'#ffd700', bg:'#100805', ground:'#201008' } },
+      { id:'mysterious', name:'Mysterious', nameCN:'神秘', desc:'深紫暗影的未知世界，神秘力量的低语', tags:['神秘','深邃'], icon:'🔮', rarity:'R', colors:{ accent:'#663399', accent2:'#9932cc', bg:'#050510', ground:'#080818' } },
+      { id:'cheerful', name:'Cheerful', nameCN:'欢快', desc:'明黄配色的阳光积极，快乐心情的绽放', tags:['阳光','快乐'], icon:'😊', rarity:'N', colors:{ accent:'#ffd700', accent2:'#ffb347', bg:'#100a05', ground:'#201508' } },
+      { id:'melancholy', name:'Melancholy', nameCN:'忧郁', desc:'蓝灰雨天的沉思诗意，雨滴敲打的低语', tags:['忧郁','沉思'], icon:'🌧️', rarity:'N', colors:{ accent:'#708090', accent2:'#4682b4', bg:'#050810', ground:'#081015' } },
+      // === 极简系 ===
+      { id:'swiss', name:'Swiss Design', nameCN:'瑞士设计', desc:'网格系统的理性美学，红黑配色的精确', tags:['极简','理性'], icon:'🇨🇭', rarity:'R', colors:{ accent:'#ff0000', accent2:'#000000', bg:'#0a0a0a', ground:'#151515' } },
+      { id:'nordic', name:'Nordic', nameCN:'北欧风', desc:'功能主义的温暖舒适，灰蓝调的生活美学', tags:['北欧','温暖'], icon:'🏠', rarity:'R', colors:{ accent:'#5f9ea0', accent2:'#deb887', bg:'#0a0a0f', ground:'#101518' } },
+      { id:'muji', name:'MUJI', nameCN:'无印风', desc:'米白大地色的朴素自然，返璞归真的哲学', tags:['自然','朴素'], icon:'🍃', rarity:'N', colors:{ accent:'#d2b48c', accent2:'#8b7355', bg:'#0a0908', ground:'#151510' } },
+      { id:'mono', name:'Monochrome', nameCN:'黑白', desc:'黑白灰强对比的纯粹，摄影感的光影世界', tags:['黑白','对比'], icon:'🖤', rarity:'N', colors:{ accent:'#ffffff', accent2:'#808080', bg:'#080808', ground:'#101010' } },
+      { id:'luxury', name:'Luxury', nameCN:'奢感', desc:'低饱和细线条的大留白，极致的高级质感', tags:['奢华','精致'], icon:'💎', rarity:'SR', colors:{ accent:'#c9b037', accent2:'#d4af37', bg:'#080808', ground:'#101010' } },
+      { id:'flat', name:'Flat', nameCN:'扁平', desc:'无阴影纯色块的现代简洁，数字美学之源', tags:['扁平','简洁'], icon:'📐', rarity:'N', colors:{ accent:'#3498db', accent2:'#e74c3c', bg:'#0a0a0f', ground:'#101518' } },
+      // === 自然系 ===
+      { id:'nature', name:'Nature', nameCN:'自然', desc:'绿色有机形态的生态友好，大自然的呼吸', tags:['自然','生态'], icon:'🌿', rarity:'N', colors:{ accent:'#22c55e', accent2:'#84cc16', bg:'#050a05', ground:'#081508' } },
+      { id:'ocean', name:'Ocean', nameCN:'海洋', desc:'深海蓝绿的神秘呼唤，水母漂浮的梦幻', tags:['海洋','深海'], icon:'🌊', rarity:'SR', colors:{ accent:'#0099cc', accent2:'#00ffcc', bg:'#030810', ground:'#051520' } },
+      { id:'coral', name:'Coral', nameCN:'珊瑚', desc:'珊瑚粉色的温柔海底，活力与柔美的交融', tags:['珊瑚','温柔'], icon:'🪸', rarity:'R', colors:{ accent:'#ff7f50', accent2:'#ff6b6b', bg:'#100808', ground:'#1a1010' } },
+      // === 材质系 ===
+      { id:'marble', name:'Marble', nameCN:'大理石', desc:'冷白灰调的大理石纹，奢华建材的高贵气质', tags:['大理石','奢华'], icon:'🗿', rarity:'SR', colors:{ accent:'#e0e0e0', accent2:'#a0a0a0', bg:'#080a0a', ground:'#101515' } },
+      { id:'metal', name:'Metal', nameCN:'金属', desc:'冷灰色调的金属光泽，工业美学的硬朗质感', tags:['金属','工业'], icon:'🔩', rarity:'R', colors:{ accent:'#808080', accent2:'#c0c0c0', bg:'#080808', ground:'#101010' } },
+      { id:'wood', name:'Wood', nameCN:'木质', desc:'温暖棕色的木纹肌理，自然材质的温馨触感', tags:['木质','温暖'], icon:'🪵', rarity:'N', colors:{ accent:'#8b4513', accent2:'#a0522d', bg:'#0a0805', ground:'#151008' } },
+      { id:'paper', name:'Paper', nameCN:'纸质', desc:'米黄纸张的文艺质感，千纸鹤飞翔的诗篇', tags:['纸张','文艺'], icon:'📜', rarity:'N', colors:{ accent:'#f5deb3', accent2:'#d2b48c', bg:'#0a0908', ground:'#151510' } },
+      { id:'leather', name:'Leather', nameCN:'皮革', desc:'复古棕色的皮革纹路，高档手工的精致品味', tags:['皮革','复古'], icon:'👜', rarity:'R', colors:{ accent:'#8b4513', accent2:'#654321', bg:'#080605', ground:'#100a08' } },
+      // === 行业系 ===
+      { id:'gaming', name:'Gaming', nameCN:'电竞', desc:'紫绿霓虹的动感效果，电子竞技的热血激情', tags:['游戏','竞技'], icon:'🎮', rarity:'SR', colors:{ accent:'#8a2be2', accent2:'#00ff00', bg:'#050508', ground:'#0a0810' } },
+      { id:'music', name:'Music', nameCN:'音乐', desc:'声波视觉的粉青律动，音符跳动的旋律世界', tags:['音乐','律动'], icon:'🎸', rarity:'R', colors:{ accent:'#ff69b4', accent2:'#00ced1', bg:'#080510', ground:'#100818' } },
+      { id:'fashion', name:'Fashion', nameCN:'时尚', desc:'黑白金配的高级感，潮流前沿的视觉语言', tags:['时尚','高级'], icon:'👗', rarity:'SR', colors:{ accent:'#1a1a1a', accent2:'#ffd700', bg:'#080808', ground:'#101010' } },
+      { id:'medical', name:'Medical', nameCN:'医疗', desc:'清洁蓝白的专业信任，健康守护的纯净空间', tags:['医疗','专业'], icon:'🏥', rarity:'N', colors:{ accent:'#00bfff', accent2:'#ffffff', bg:'#050a10', ground:'#081520' } },
+      { id:'finance', name:'Finance', nameCN:'金融', desc:'绿红数据的专业信赖，财富增长的脉搏跳动', tags:['金融','数据'], icon:'📈', rarity:'R', colors:{ accent:'#228b22', accent2:'#dc143c', bg:'#050808', ground:'#0a1010' } },
+      { id:'education', name:'Education', nameCN:'教育', desc:'知识绿色的亲和力量，学习成长的希望之色', tags:['教育','知识'], icon:'🎓', rarity:'N', colors:{ accent:'#2e8b57', accent2:'#3cb371', bg:'#050a08', ground:'#081510' } },
+      { id:'food', name:'Food', nameCN:'餐饮', desc:'暖橙绿配的食欲色彩，美食诱惑的温馨空间', tags:['餐饮','美味'], icon:'🍽️', rarity:'N', colors:{ accent:'#ff8c00', accent2:'#32cd32', bg:'#100805', ground:'#201008' } },
+      { id:'travel', name:'Travel', nameCN:'旅游', desc:'蓝橙配色的探索精神，世界冒险的自由飞翔', tags:['旅游','探索'], icon:'✈️', rarity:'R', colors:{ accent:'#1e90ff', accent2:'#ff8c00', bg:'#050810', ground:'#0a1020' } },
+      { id:'sports', name:'Sports', nameCN:'运动', desc:'橙绿配色的竞技力量，汗水与荣耀的闪耀', tags:['运动','活力'], icon:'⚽', rarity:'R', colors:{ accent:'#ff4500', accent2:'#32cd32', bg:'#100805', ground:'#201008' } },
+      { id:'kids', name:'Kids', nameCN:'儿童', desc:'糖果色彩的圆润形状，童趣世界的欢乐时光', tags:['儿童','欢乐'], icon:'🧸', rarity:'N', colors:{ accent:'#ff69b4', accent2:'#00ced1', bg:'#100810', ground:'#180c18' } },
+      { id:'wedding', name:'Wedding', nameCN:'婚礼', desc:'粉金配色的浪漫优雅，幸福时刻的美好见证', tags:['婚礼','浪漫'], icon:'💒', rarity:'R', colors:{ accent:'#ffb6c1', accent2:'#ffd700', bg:'#100808', ground:'#1a1010' } },
+      // === 小众系 ===
+      { id:'solarpunk', name:'Solarpunk', nameCN:'阳光朋克', desc:'绿色未来的乐观科技，可持续发展的美好愿景', tags:['生态','乐观'], icon:'☀️', rarity:'SR', colors:{ accent:'#32cd32', accent2:'#ffd700', bg:'#050a05', ground:'#0a1508' } },
+      { id:'cottagecore', name:'Cottagecore', nameCN:'田园核', desc:'乡村田园的手工艺美学，回归自然的诗意生活', tags:['田园','自然'], icon:'🏡', rarity:'R', colors:{ accent:'#deb887', accent2:'#8fbc8f', bg:'#0a0a08', ground:'#151510' } },
+      { id:'darkacademia', name:'Dark Academia', nameCN:'暗黑学院', desc:'古典学院的深棕书卷气，知性神秘的烛光', tags:['学院','知性'], icon:'📚', rarity:'SR', colors:{ accent:'#3c2415', accent2:'#8b4513', bg:'#080605', ground:'#100a08' } },
+      { id:'lightacademia', name:'Light Academia', nameCN:'浅色学院', desc:'阳光图书馆的温暖知性，米白色的求知路', tags:['学院','温和'], icon:'📖', rarity:'R', colors:{ accent:'#f5deb3', accent2:'#d2b48c', bg:'#0a0908', ground:'#151510' } },
+      { id:'weirdcore', name:'Weirdcore', nameCN:'怪核', desc:'低质图像的不协调美学，互联网的诡异探索', tags:['诡异','超现实'], icon:'👁️', rarity:'SSR', colors:{ accent:'#ff00ff', accent2:'#00ff00', bg:'#080808', ground:'#101010' } },
+      { id:'dreamcore', name:'Dreamcore', nameCN:'梦核', desc:'柔和光线的梦境逻辑，虚幻世界的迷离之美', tags:['梦幻','超现实'], icon:'💭', rarity:'SR', colors:{ accent:'#e6e6fa', accent2:'#dda0dd', bg:'#080810', ground:'#101018' } },
+      { id:'frutiger', name:'Frutiger Aero', nameCN:'Frutiger', desc:'2000年代的数字乐观，透明泡泡与自然元素', tags:['透明','2000s'], icon:'🫧', rarity:'SR', colors:{ accent:'#87ceeb', accent2:'#98fb98', bg:'#050a0a', ground:'#081515' } },
+      { id:'handmade', name:'Handmade', nameCN:'手作', desc:'暖灰纸感的柔和圆角，亲和温暖的手工美学', tags:['手作','温柔'], icon:'🧶', rarity:'N', colors:{ accent:'#d2b48c', accent2:'#bc8f8f', bg:'#0a0908', ground:'#151510' } },
+      // === 天气系 ===
+      { id:'sunny', name:'Sunny', nameCN:'晴天', desc:'金黄明亮的阳光普照，心情愉悦的美好天气', tags:['晴天','温暖'], icon:'☀️', rarity:'N', colors:{ accent:'#ffd700', accent2:'#ff8c00', bg:'#100a05', ground:'#201508' } },
+      { id:'rainy', name:'Rainy', nameCN:'雨天', desc:'蓝灰色调的雨滴涟漪，宁静沉思的忧郁之美', tags:['雨天','宁静'], icon:'🌧️', rarity:'N', colors:{ accent:'#4682b4', accent2:'#708090', bg:'#050810', ground:'#081015' } },
+      { id:'stormy', name:'Stormy', nameCN:'暴风', desc:'暗灰闪电的戏剧张力，狂风骤雨的自然力量', tags:['暴风','戏剧'], icon:'⛈️', rarity:'R', colors:{ accent:'#483d8b', accent2:'#ffd700', bg:'#050508', ground:'#0a0810' } },
+      { id:'foggy', name:'Foggy', nameCN:'雾天', desc:'灰白朦胧的若隐若现，神秘迷雾的虚幻世界', tags:['朦胧','神秘'], icon:'🌫️', rarity:'N', colors:{ accent:'#c0c0c0', accent2:'#a0a0a0', bg:'#0a0a0a', ground:'#151515' } },
+      // === 时间系 ===
+      { id:'dawn', name:'Dawn', nameCN:'黎明', desc:'粉橙渐变的晨曦初现，新一天的希望曙光', tags:['黎明','希望'], icon:'🌅', rarity:'R', colors:{ accent:'#ffb6c1', accent2:'#ffa07a', bg:'#100808', ground:'#1a1010' } },
+      { id:'dusk', name:'Dusk', nameCN:'黄昏', desc:'橙紫渐变的落日余晖，浪漫怀旧的金色时刻', tags:['黄昏','浪漫'], icon:'🌆', rarity:'R', colors:{ accent:'#ff8c00', accent2:'#9370db', bg:'#100508', ground:'#1a0810' } },
+      { id:'summer', name:'Summer', nameCN:'夏天', desc:'明亮橙黄的阳光海滩，热情似火的灿烂季节', tags:['夏天','热情'], icon:'🏖️', rarity:'R', colors:{ accent:'#ffa500', accent2:'#ff6347', bg:'#100805', ground:'#201008' } },
+      // === 更多特效系 ===
+      { id:'neumorphism', name:'Neumorphism', nameCN:'新拟物', desc:'柔和凹凸的内外阴影，温柔触感的设计语言', tags:['拟物','柔和'], icon:'🔘', rarity:'SR', colors:{ accent:'#a0a0b0', accent2:'#c0c0d0', bg:'#101015', ground:'#181820' } },
+      { id:'clay', name:'Claymorphism', nameCN:'黏土风', desc:'3D软糯质感的彩色黏土，趣味立体的童真世界', tags:['3D','趣味'], icon:'🪁', rarity:'SR', colors:{ accent:'#ff6b9d', accent2:'#ffa94d', bg:'#0a0510', ground:'#150818' } },
+    ];
+
+    document.getElementById('total-styles').textContent = STYLES.length;
+    document.getElementById('total-info').textContent = `风格宇宙 · 收录 ${STYLES.length} 种风格`;
+
+    // ==================== 状态管理 ====================
+    let pullCount = 0;
+    let collection = [];
+    let currentStyle = null;
+    let isPulling = false;
+
+    // ==================== Three.js 初始化 ====================
+    const canvas = document.getElementById('canvas');
+    const scene = new THREE.Scene();
+    scene.background = new THREE.Color('#0c0c18');
+
+    const camera = new THREE.PerspectiveCamera(60, innerWidth / innerHeight, 0.1, 1000);
+    camera.position.set(0, 8, 35);
+    camera.lookAt(0, 0, 0);
+
+    const renderer = new THREE.WebGLRenderer({ canvas, antialias: true, alpha: true });
+    renderer.setSize(innerWidth, innerHeight);
+    renderer.setPixelRatio(Math.min(devicePixelRatio, 2));
+    renderer.toneMapping = THREE.ACESFilmicToneMapping;
+    renderer.toneMappingExposure = 1.3;
+
+    // 后处理
+    const composer = new EffectComposer(renderer);
+    composer.addPass(new RenderPass(scene, camera));
+    const bloomPass = new UnrealBloomPass(
+      new THREE.Vector2(innerWidth, innerHeight),
+      1.5, 0.4, 0.85
+    );
+    bloomPass.threshold = 0.15;
+    bloomPass.strength = 0.8;
+    bloomPass.radius = 0.6;
+    composer.addPass(bloomPass);
+
+    // ==================== 场景组 ====================
+    const worldGroup = new THREE.Group(); // 整个世界
+    const groundGroup = new THREE.Group(); // 地面
+    const environmentGroup = new THREE.Group(); // 环境（天空等）
+    const installationGroup = new THREE.Group(); // 艺术装置
+    const particleGroup = new THREE.Group(); // 粒子
+
+    scene.add(worldGroup);
+    worldGroup.add(groundGroup, environmentGroup, installationGroup, particleGroup);
+
+    // ==================== 地面系统 ====================
+    function createGround(style) {
+      // 清理
+      while (groundGroup.children.length > 0) {
+        const child = groundGroup.children[0];
+        groundGroup.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      }
+
+      const c = style.colors;
+      const accent = new THREE.Color(c.accent);
+
+      // 地面颜色：基于accent色生成，比背景稍亮
+      const groundColor = generateStyledBg(c.accent, c.accent2);
+      groundColor.multiplyScalar(1.8); // 比背景亮一些
+
+      // 反射地面
+      const groundGeo = new THREE.PlaneGeometry(200, 200, 100, 100);
+      const groundMat = new THREE.MeshStandardMaterial({
+        color: groundColor,
+        metalness: 0.4,
+        roughness: 0.5,
+        transparent: true,
+        opacity: 0.4,
+      });
+      const ground = new THREE.Mesh(groundGeo, groundMat);
+      ground.rotation.x = -Math.PI / 2;
+      ground.position.y = -15;
+      groundGroup.add(ground);
+
+      // 根据风格添加特殊地面元素
+      if (style.id === 'cyber' || style.id === 'vaporwave' || style.id === 'synthwave') {
+        // 透视网格
+        const gridHelper = new THREE.GridHelper(200, 50, accent, accent);
+        gridHelper.position.y = -14.9;
+        gridHelper.material.opacity = 0.3;
+        gridHelper.material.transparent = true;
+        groundGroup.add(gridHelper);
+      }
+
+      if (style.id === 'matrix' || style.id === 'terminal') {
+        const codeGround = new THREE.Mesh(
+          new THREE.PlaneGeometry(200, 200),
+          new THREE.MeshBasicMaterial({ color: '#001000', transparent: true, opacity: 0.9 })
+        );
+        codeGround.rotation.x = -Math.PI / 2;
+        codeGround.position.y = -14.8;
+        groundGroup.add(codeGround);
+      }
+
+      if (style.id === 'gothic' || style.id === 'darkacademia') {
+        const stoneGround = new THREE.Mesh(
+          new THREE.PlaneGeometry(200, 200),
+          new THREE.MeshStandardMaterial({ color:'#1a1a1a', metalness:0.2, roughness:0.9, transparent:true, opacity:0.8 })
+        );
+        stoneGround.rotation.x = -Math.PI / 2;
+        stoneGround.position.y = -14.8;
+        groundGroup.add(stoneGround);
+      }
+
+      if (style.id === 'ocean' || style.id === 'coral' || style.id === 'mediterranean') {
+        groundMat.color.set('#051525');
+        groundMat.metalness = 0.3;
+        groundMat.roughness = 0.7;
+      }
+
+      if (style.id === 'desert') {
+        groundMat.color.set('#1a1508');
+        groundMat.roughness = 0.9;
+        groundMat.metalness = 0;
+      }
+
+      if (style.id === 'forest' || style.id === 'nature' || style.id === 'solarpunk') {
+        groundMat.color.set('#050a05');
+        groundMat.roughness = 0.9;
+        groundMat.metalness = 0;
+      }
+    }
+
+    // ==================== 环境系统 ====================
+    function createEnvironment(style) {
+      while (environmentGroup.children.length > 0) {
+        const child = environmentGroup.children[0];
+        environmentGroup.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      }
+
+      const c = style.colors;
+
+      // 基础白光（保证所有物体可见）
+      const ambientWhite = new THREE.AmbientLight('#ffffff', 0.4);
+      environmentGroup.add(ambientWhite);
+
+      // 风格色环境光
+      const ambientAccent = new THREE.AmbientLight(c.accent, 0.3);
+      environmentGroup.add(ambientAccent);
+
+      // 主光源（白色偏暖，照亮装置）
+      const mainLight = new THREE.DirectionalLight('#fffaf0', 0.6);
+      mainLight.position.set(10, 20, 15);
+      environmentGroup.add(mainLight);
+
+      // 风格色点光源
+      const pointLight1 = new THREE.PointLight(c.accent, 1.2, 120);
+      pointLight1.position.set(20, 15, 20);
+      environmentGroup.add(pointLight1);
+
+      const pointLight2 = new THREE.PointLight(c.accent2, 1, 100);
+      pointLight2.position.set(-20, 10, -15);
+      environmentGroup.add(pointLight2);
+
+      // 底部补光（减少死黑阴影）
+      const fillLight = new THREE.PointLight('#ffffff', 0.3, 60);
+      fillLight.position.set(0, -10, 10);
+      environmentGroup.add(fillLight);
+
+      // 根据风格添加特殊环境
+      if (style.id === 'aurora') {
+        // 极光帘幕
+        for (let i = 0; i < 5; i++) {
+          const auroraGeo = new THREE.PlaneGeometry(80, 30, 50, 20);
+          const auroraMat = new THREE.MeshBasicMaterial({
+            color: i % 2 === 0 ? c.accent : c.accent2,
+            transparent: true,
+            opacity: 0.15,
+            side: THREE.DoubleSide,
+          });
+          const aurora = new THREE.Mesh(auroraGeo, auroraMat);
+          aurora.position.set(0, 15 + i * 5, -40 - i * 5);
+          aurora.userData.phase = i * 0.5;
+          aurora.userData.isAurora = true;
+          environmentGroup.add(aurora);
+        }
+      }
+
+      if (style.id === 'sunset') {
+        // 落日
+        const sunGeo = new THREE.CircleGeometry(20, 64);
+        const sunMat = new THREE.MeshBasicMaterial({
+          color: '#ff6347',
+          transparent: true,
+          opacity: 0.8,
+        });
+        const sun = new THREE.Mesh(sunGeo, sunMat);
+        sun.position.set(0, 5, -60);
+        environmentGroup.add(sun);
+
+        // 光晕
+        for (let i = 1; i <= 3; i++) {
+          const haloGeo = new THREE.RingGeometry(20 + i * 5, 21 + i * 5, 64);
+          const haloMat = new THREE.MeshBasicMaterial({
+            color: '#ffd700',
+            transparent: true,
+            opacity: 0.3 - i * 0.08,
+            side: THREE.DoubleSide,
+          });
+          const halo = new THREE.Mesh(haloGeo, haloMat);
+          halo.position.set(0, 5, -59);
+          environmentGroup.add(halo);
+        }
+      }
+
+      if (style.id === 'vaporwave' || style.id === 'synthwave') {
+        const vaporSun = new THREE.Mesh(
+          new THREE.CircleGeometry(15, 64),
+          new THREE.MeshBasicMaterial({ color: style.id === 'vaporwave' ? '#ff71ce' : '#f72585', transparent: true, opacity: 0.7 })
+        );
+        vaporSun.position.set(0, 8, -50);
+        environmentGroup.add(vaporSun);
+        for (let i = 0; i < 6; i++) {
+          const stripe = new THREE.Mesh(
+            new THREE.PlaneGeometry(32, 1.5),
+            new THREE.MeshBasicMaterial({ color: '#000', transparent: true, opacity: 0.8 })
+          );
+          stripe.position.set(0, 8 - i * 2.5, -49);
+          environmentGroup.add(stripe);
+        }
+      }
+
+      // 午夜星空
+      if (style.id === 'midnight') {
+        const moonGeo = new THREE.CircleGeometry(5, 32);
+        const moon = new THREE.Mesh(moonGeo, new THREE.MeshBasicMaterial({ color:'#ffffcc', transparent:true, opacity:0.8 }));
+        moon.position.set(15, 20, -50);
+        environmentGroup.add(moon);
+        const moonGlow = new THREE.Mesh(new THREE.CircleGeometry(8, 32), new THREE.MeshBasicMaterial({ color:'#ffffcc', transparent:true, opacity:0.15 }));
+        moonGlow.position.set(15, 20, -51);
+        environmentGroup.add(moonGlow);
+      }
+
+      // 黎明和黄昏
+      if (style.id === 'dawn' || style.id === 'dusk' || style.id === 'summer') {
+        const dawnSun = new THREE.Mesh(
+          new THREE.CircleGeometry(12, 64),
+          new THREE.MeshBasicMaterial({ color: c.accent, transparent:true, opacity:0.6 })
+        );
+        dawnSun.position.set(0, style.id === 'dawn' ? -5 : 3, -55);
+        environmentGroup.add(dawnSun);
+        for (let i = 1; i <= 4; i++) {
+          const halo = new THREE.Mesh(
+            new THREE.RingGeometry(12 + i * 4, 13 + i * 4, 64),
+            new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.2 - i * 0.04, side:THREE.DoubleSide })
+          );
+          halo.position.set(0, style.id === 'dawn' ? -5 : 3, -54);
+          environmentGroup.add(halo);
+        }
+      }
+
+      // 森林：绿色环境光
+      if (style.id === 'forest') {
+        const fogLight = new THREE.PointLight('#228b22', 0.5, 50);
+        fogLight.position.set(0, 5, 0);
+        environmentGroup.add(fogLight);
+      }
+
+      // 暴风：闪电光
+      if (style.id === 'stormy') {
+        const lightningLight = new THREE.PointLight('#ffd700', 0, 100);
+        lightningLight.position.set(0, 20, -10);
+        lightningLight.userData.isLightning = true;
+        environmentGroup.add(lightningLight);
+      }
+
+      // 禅意：极简
+      if (style.id === 'zen') {
+        const stone1 = new THREE.Mesh(
+          new THREE.SphereGeometry(2, 8, 8),
+          new THREE.MeshStandardMaterial({ color:'#696969', roughness:0.9 })
+        );
+        stone1.position.set(-3, -13, -5);
+        stone1.scale.y = 0.7;
+        environmentGroup.add(stone1);
+        const stone2 = new THREE.Mesh(
+          new THREE.SphereGeometry(1.2, 8, 8),
+          new THREE.MeshStandardMaterial({ color:'#808080', roughness:0.9 })
+        );
+        stone2.position.set(4, -13.5, -3);
+        stone2.scale.y = 0.6;
+        environmentGroup.add(stone2);
+      }
+    }
+
+    // ==================== 艺术装置系统 ====================
+    function createInstallation(style) {
+      while (installationGroup.children.length > 0) {
+        const child = installationGroup.children[0];
+        installationGroup.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      }
+
+      const c = style.colors;
+      const accent = new THREE.Color(c.accent);
+      const accent2 = new THREE.Color(c.accent2);
+
+      switch (style.id) {
+        case 'glass':
+          // 多层玻璃球体嵌套
+          for (let i = 0; i < 5; i++) {
+            const sphere = new THREE.Mesh(
+              new THREE.IcosahedronGeometry(6 - i, i < 2 ? 2 : 1),
+              new THREE.MeshPhysicalMaterial({
+                color: accent.clone().lerp(accent2, i / 4),
+                metalness: 0.1,
+                roughness: 0.1,
+                transparent: true,
+                opacity: 0.3,
+                wireframe: i % 2 === 1,
+              })
+            );
+            sphere.userData.rotSpeed = 0.002 * (i + 1) * (i % 2 === 0 ? 1 : -1);
+            sphere.userData.isInstallation = true;
+            installationGroup.add(sphere);
+          }
+          break;
+
+        case 'neon':
+          // 霓虹灯管雕塑
+          const neonShapes = [
+            { type: 'torus', args: [8, 0.3, 16, 100], pos: [0, 0, 0], rot: [Math.PI / 2, 0, 0] },
+            { type: 'torus', args: [6, 0.3, 16, 100], pos: [0, 0, 0], rot: [Math.PI / 3, Math.PI / 4, 0] },
+            { type: 'torus', args: [4, 0.3, 16, 100], pos: [0, 0, 0], rot: [Math.PI / 4, Math.PI / 2, 0] },
+          ];
+          neonShapes.forEach((s, i) => {
+            const geo = new THREE.TorusGeometry(...s.args);
+            const mat = new THREE.MeshBasicMaterial({
+              color: i % 2 === 0 ? c.accent : c.accent2,
+              transparent: true,
+              opacity: 0.9,
+            });
+            const mesh = new THREE.Mesh(geo, mat);
+            mesh.position.set(...s.pos);
+            mesh.rotation.set(...s.rot);
+            mesh.userData.rotSpeed = 0.01 * (i + 1);
+            mesh.userData.rotAxis = ['x', 'y', 'z'][i % 3];
+            mesh.userData.isInstallation = true;
+            installationGroup.add(mesh);
+          });
+          // 发光核心
+          const neonCore = new THREE.Mesh(
+            new THREE.SphereGeometry(2, 32, 32),
+            new THREE.MeshBasicMaterial({ color: '#ffffff' })
+          );
+          neonCore.userData.isInstallation = true;
+          installationGroup.add(neonCore);
+          break;
+
+        case 'cyber':
+          // 数据立方体
+          const cubeGroup = new THREE.Group();
+          for (let i = 0; i < 3; i++) {
+            const cube = new THREE.Mesh(
+              new THREE.BoxGeometry(8 - i * 2, 8 - i * 2, 8 - i * 2),
+              new THREE.MeshBasicMaterial({
+                color: i === 0 ? c.accent : c.accent2,
+                wireframe: true,
+                transparent: true,
+                opacity: 0.6,
+              })
+            );
+            cube.userData.rotSpeed = 0.005 * (i + 1);
+            cubeGroup.add(cube);
+          }
+          cubeGroup.userData.isInstallation = true;
+          cubeGroup.userData.rotSpeed = 0.003;
+          installationGroup.add(cubeGroup);
+          // 数据流粒子
+          const dataCount = 200;
+          const dataGeo = new THREE.BufferGeometry();
+          const dataPos = new Float32Array(dataCount * 3);
+          for (let i = 0; i < dataCount; i++) {
+            dataPos[i * 3] = (Math.random() - 0.5) * 12;
+            dataPos[i * 3 + 1] = (Math.random() - 0.5) * 12;
+            dataPos[i * 3 + 2] = (Math.random() - 0.5) * 12;
+          }
+          dataGeo.setAttribute('position', new THREE.BufferAttribute(dataPos, 3));
+          const dataPoints = new THREE.Points(dataGeo, new THREE.PointsMaterial({
+            color: c.accent,
+            size: 0.15,
+            transparent: true,
+            opacity: 0.8,
+          }));
+          dataPoints.userData.isData = true;
+          installationGroup.add(dataPoints);
+          break;
+
+        case 'aurora':
+          // 极光波动带
+          for (let i = 0; i < 8; i++) {
+            const waveGeo = new THREE.PlaneGeometry(40, 8, 80, 16);
+            const waveMat = new THREE.MeshBasicMaterial({
+              color: i % 2 === 0 ? c.accent : c.accent2,
+              transparent: true,
+              opacity: 0.25,
+              side: THREE.DoubleSide,
+              wireframe: i % 3 === 0,
+            });
+            const wave = new THREE.Mesh(waveGeo, waveMat);
+            wave.position.y = i * 2 - 4;
+            wave.rotation.x = -0.3;
+            wave.userData.wavePhase = i * 0.5;
+            wave.userData.isWave = true;
+            installationGroup.add(wave);
+          }
+          break;
+
+        case 'japanese':
+          // 樱花树
+          const trunk = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.3, 0.5, 12, 8),
+            new THREE.MeshStandardMaterial({ color: '#4a3728', roughness: 0.9 })
+          );
+          trunk.position.y = -9;
+          installationGroup.add(trunk);
+          // 树冠（粉色球）
+          for (let i = 0; i < 15; i++) {
+            const branch = new THREE.Mesh(
+              new THREE.SphereGeometry(2 + Math.random() * 2, 8, 8),
+              new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? c.accent : c.accent2,
+                transparent: true,
+                opacity: 0.6,
+              })
+            );
+            branch.position.set(
+              (Math.random() - 0.5) * 8,
+              (Math.random() - 0.5) * 6,
+              (Math.random() - 0.5) * 8
+            );
+            installationGroup.add(branch);
+          }
+          break;
+
+        case 'gothic':
+          // 哥特尖塔
+          for (let i = 0; i < 5; i++) {
+            const spire = new THREE.Mesh(
+              new THREE.ConeGeometry(1.5, 15 + i * 3, 4),
+              new THREE.MeshStandardMaterial({
+                color: i === 2 ? c.accent : '#1a1a1a',
+                metalness: 0.5,
+                roughness: 0.5,
+              })
+            );
+            spire.position.set((i - 2) * 5, -7 + i * 1.5, 0);
+            installationGroup.add(spire);
+          }
+          // 发光符文环
+          const runeRing = new THREE.Mesh(
+            new THREE.TorusGeometry(10, 0.2, 16, 100),
+            new THREE.MeshBasicMaterial({ color: c.accent })
+          );
+          runeRing.rotation.x = Math.PI / 2;
+          runeRing.position.y = -10;
+          runeRing.userData.isInstallation = true;
+          runeRing.userData.rotSpeed = 0.01;
+          installationGroup.add(runeRing);
+          break;
+
+        case 'vaporwave':
+          // 希腊雕像碎片
+          const statueBase = new THREE.Group();
+          // 躯干
+          const torso = new THREE.Mesh(
+            new THREE.CylinderGeometry(2, 2.5, 8, 8),
+            new THREE.MeshStandardMaterial({ color: '#e0e0e0', roughness: 0.4 })
+          );
+          statueBase.add(torso);
+          // 头部
+          const head = new THREE.Mesh(
+            new THREE.SphereGeometry(1.5, 16, 16),
+            new THREE.MeshStandardMaterial({ color: '#e0e0e0', roughness: 0.4 })
+          );
+          head.position.y = 5.5;
+          statueBase.add(head);
+          statueBase.rotation.y = Math.PI / 6;
+          statueBase.position.y = -6;
+          statueBase.userData.isInstallation = true;
+          statueBase.userData.floatPhase = 0;
+          installationGroup.add(statueBase);
+          break;
+
+        case 'pixel':
+          // 像素方块群
+          for (let i = 0; i < 50; i++) {
+            const size = 1 + Math.floor(Math.random() * 3);
+            const pixelCube = new THREE.Mesh(
+              new THREE.BoxGeometry(size, size, size),
+              new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? c.accent : c.accent2,
+                transparent: true,
+                opacity: 0.7,
+              })
+            );
+            pixelCube.position.set(
+              Math.round((Math.random() - 0.5) * 20),
+              Math.round((Math.random() - 0.5) * 15),
+              Math.round((Math.random() - 0.5) * 15)
+            );
+            pixelCube.userData.floatSpeed = Math.random() * 0.02;
+            pixelCube.userData.floatPhase = Math.random() * Math.PI * 2;
+            installationGroup.add(pixelCube);
+          }
+          break;
+
+        case 'glitch':
+          // 故障立方体
+          const glitchGroup = new THREE.Group();
+          for (let i = 0; i < 3; i++) {
+            const glitchCube = new THREE.Mesh(
+              new THREE.BoxGeometry(6, 6, 6),
+              new THREE.MeshBasicMaterial({
+                color: ['#ff0000', '#00ff00', '#0000ff'][i],
+                transparent: true,
+                opacity: 0.5,
+                wireframe: i === 1,
+              })
+            );
+            glitchCube.position.x = (i - 1) * 0.5;
+            glitchCube.userData.glitchOffset = i;
+            glitchGroup.add(glitchCube);
+          }
+          glitchGroup.userData.isGlitch = true;
+          installationGroup.add(glitchGroup);
+          break;
+
+        case 'matrix':
+          // 代码球体
+          const codeSphere = new THREE.Mesh(
+            new THREE.SphereGeometry(8, 32, 32),
+            new THREE.MeshBasicMaterial({
+              color: c.accent,
+              wireframe: true,
+              transparent: true,
+              opacity: 0.5,
+            })
+          );
+          codeSphere.userData.isInstallation = true;
+          codeSphere.userData.rotSpeed = 0.005;
+          installationGroup.add(codeSphere);
+          // 内核
+          const codeCore = new THREE.Mesh(
+            new THREE.OctahedronGeometry(3, 0),
+            new THREE.MeshBasicMaterial({ color: c.accent })
+          );
+          codeCore.userData.isInstallation = true;
+          codeCore.userData.rotSpeed = -0.01;
+          installationGroup.add(codeCore);
+          break;
+
+        case 'holographic': {
+          // 彩虹棱镜
+          const prism = new THREE.Mesh(
+            new THREE.ConeGeometry(5, 10, 3),
+            new THREE.MeshPhysicalMaterial({ color:'#ffffff', metalness:0.9, roughness:0, transparent:true, opacity:0.5 })
+          );
+          prism.userData.isInstallation = true;
+          prism.userData.rotSpeed = 0.008;
+          installationGroup.add(prism);
+          // 彩虹光环
+          const rainbowColors = ['#ff0000','#ff8c00','#ffd700','#00ff00','#0099ff','#6600cc'];
+          rainbowColors.forEach((rc, i) => {
+            const rr = new THREE.Mesh(
+              new THREE.TorusGeometry(7 + i * 1.2, 0.15, 16, 100),
+              new THREE.MeshBasicMaterial({ color:rc, transparent:true, opacity:0.5 })
+            );
+            rr.rotation.x = Math.PI / 2 + i * 0.05;
+            rr.rotation.z = i * 0.1;
+            rr.userData.isInstallation = true;
+            rr.userData.rotSpeed = 0.003 * (i + 1);
+            installationGroup.add(rr);
+          });
+          break;
+        }
+        case 'chinese': {
+          // 盘旋金龙（螺旋）
+          const dragonGroup = new THREE.Group();
+          for (let i = 0; i < 80; i++) {
+            const t = i * 0.15;
+            const x = Math.cos(t) * (5 + t * 0.2);
+            const y = t * 0.6 - 8;
+            const z = Math.sin(t) * (5 + t * 0.2);
+            const seg = new THREE.Mesh(
+              new THREE.SphereGeometry(0.6 - i * 0.004, 8, 8),
+              new THREE.MeshBasicMaterial({ color: i < 5 ? c.accent2 : c.accent, transparent:true, opacity:0.8 })
+            );
+            seg.position.set(x, y, z);
+            dragonGroup.add(seg);
+          }
+          dragonGroup.userData.isInstallation = true;
+          dragonGroup.userData.rotSpeed = 0.005;
+          installationGroup.add(dragonGroup);
+          break;
+        }
+        case 'ocean': {
+          // 水母群
+          for (let j = 0; j < 6; j++) {
+            const jelly = new THREE.Group();
+            const cap = new THREE.Mesh(
+              new THREE.SphereGeometry(2, 16, 16, 0, Math.PI * 2, 0, Math.PI / 2),
+              new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.5 })
+            );
+            jelly.add(cap);
+            for (let t = 0; t < 8; t++) {
+              const tentacle = new THREE.Mesh(
+                new THREE.CylinderGeometry(0.05, 0.05, 4 + Math.random() * 3, 4),
+                new THREE.MeshBasicMaterial({ color: c.accent, transparent:true, opacity:0.4 })
+              );
+              tentacle.position.set(Math.cos(t * Math.PI / 4) * 1.2, -3, Math.sin(t * Math.PI / 4) * 1.2);
+              tentacle.userData.tentaclePhase = t;
+              jelly.add(tentacle);
+            }
+            jelly.position.set((Math.random() - 0.5) * 25, Math.random() * 15 - 5, (Math.random() - 0.5) * 20);
+            jelly.userData.floatPhase = Math.random() * Math.PI * 2;
+            jelly.userData.floatSpeed = 0.005 + Math.random() * 0.01;
+            jelly.userData.isJellyfish = true;
+            installationGroup.add(jelly);
+          }
+          break;
+        }
+        case 'steampunk': {
+          // 齿轮组
+          for (let i = 0; i < 6; i++) {
+            const gear = new THREE.Mesh(
+              new THREE.TorusGeometry(3 + i * 1.5, 0.6, 8, i < 3 ? 12 : 16),
+              new THREE.MeshStandardMaterial({ color: i % 2 === 0 ? c.accent : c.accent2, metalness:0.9, roughness:0.2 })
+            );
+            gear.position.set((i - 2.5) * 4, (i % 3 - 1) * 3, 0);
+            gear.rotation.set(0, 0, i * 0.3);
+            gear.userData.isInstallation = true;
+            gear.userData.rotSpeed = 0.008 * (i % 2 === 0 ? 1 : -1);
+            gear.userData.rotAxis = 'z';
+            installationGroup.add(gear);
+          }
+          break;
+        }
+        case 'romantic': {
+          // 巨大水晶心形
+          const heartShape = new THREE.Shape();
+          heartShape.moveTo(0, 2);
+          heartShape.bezierCurveTo(2, 4, 4, 2, 4, 0);
+          heartShape.bezierCurveTo(4, -2, 2, -4, 0, -5);
+          heartShape.bezierCurveTo(-2, -4, -4, -2, -4, 0);
+          heartShape.bezierCurveTo(-4, 2, -2, 4, 0, 2);
+          const heartGeo = new THREE.ExtrudeGeometry(heartShape, { depth:1, bevelEnabled:true, bevelThickness:0.5, bevelSize:0.5, bevelSegments:3 });
+          const heartMesh = new THREE.Mesh(heartGeo, new THREE.MeshPhysicalMaterial({
+            color: c.accent, metalness:0.3, roughness:0.2, transparent:true, opacity:0.7
+          }));
+          heartMesh.scale.set(1.2, 1.2, 1.2);
+          heartMesh.userData.isInstallation = true;
+          heartMesh.userData.rotSpeed = 0.005;
+          installationGroup.add(heartMesh);
+          break;
+        }
+        case 'synthwave': {
+          // 霓虹山脉
+          const mountainGeo = new THREE.PlaneGeometry(60, 30, 30, 15);
+          const pos = mountainGeo.attributes.position;
+          for (let i = 0; i < pos.count; i++) {
+            const x = pos.getX(i);
+            const y = pos.getY(i);
+            pos.setZ(i, Math.sin(x * 0.15) * 3 + Math.sin(y * 0.3) * 2 + Math.random() * 0.5);
+          }
+          const mountain = new THREE.Mesh(mountainGeo, new THREE.MeshBasicMaterial({
+            color: c.accent, wireframe:true, transparent:true, opacity:0.5
+          }));
+          mountain.rotation.x = -0.6;
+          mountain.position.set(0, -5, -20);
+          installationGroup.add(mountain);
+          break;
+        }
+        case 'ios': {
+          // 苹果风格图标
+          for (let i = 0; i < 9; i++) {
+            const icon = new THREE.Mesh(
+              new THREE.BoxGeometry(3, 3, 0.5),
+              new THREE.MeshStandardMaterial({
+                color: ['#007aff','#34c759','#ff3b30','#ff9500','#af52de','#5856d6','#ff2d55','#00c7be','#007aff'][i],
+                metalness:0.2, roughness:0.5,
+              })
+            );
+            icon.position.set(((i % 3) - 1) * 4.5, (Math.floor(i / 3) - 1) * 4.5, 0);
+            icon.userData.isInstallation = true;
+            icon.userData.floatPhase = i * 0.5;
+            icon.userData.floatSpeed = 0.01;
+            installationGroup.add(icon);
+          }
+          break;
+        }
+        case 'spotify': {
+          // 黑胶唱片
+          const vinyl = new THREE.Mesh(
+            new THREE.CylinderGeometry(7, 7, 0.3, 64),
+            new THREE.MeshStandardMaterial({ color:'#111', metalness:0.9, roughness:0.15 })
+          );
+          vinyl.rotation.x = Math.PI / 6;
+          vinyl.userData.isInstallation = true;
+          vinyl.userData.rotSpeed = 0.02;
+          installationGroup.add(vinyl);
+          for (let i = 1; i < 7; i++) {
+            const groove = new THREE.Mesh(
+              new THREE.TorusGeometry(i, 0.03, 8, 100),
+              new THREE.MeshBasicMaterial({ color:'#222' })
+            );
+            groove.rotation.x = Math.PI / 6;
+            groove.position.z = 0.16;
+            groove.userData.isInstallation = true;
+            groove.userData.rotSpeed = 0.02;
+            installationGroup.add(groove);
+          }
+          const label = new THREE.Mesh(
+            new THREE.CircleGeometry(2, 32),
+            new THREE.MeshBasicMaterial({ color: c.accent })
+          );
+          label.rotation.x = -Math.PI / 2 + Math.PI / 6;
+          label.position.y = 0.16;
+          label.userData.isInstallation = true;
+          label.userData.rotSpeed = 0.02;
+          installationGroup.add(label);
+          break;
+        }
+        case 'indian': {
+          // 曼陀罗
+          const mandala = new THREE.Group();
+          for (let layer = 0; layer < 6; layer++) {
+            const petals = 8 + layer * 4;
+            for (let i = 0; i < petals; i++) {
+              const angle = (i / petals) * Math.PI * 2;
+              const r = 2 + layer * 2;
+              const p = new THREE.Mesh(
+                new THREE.CircleGeometry(0.8 + layer * 0.1, 6),
+                new THREE.MeshBasicMaterial({ color: layer % 2 === 0 ? c.accent : c.accent2, transparent:true, opacity:0.6, side:THREE.DoubleSide })
+              );
+              p.position.set(Math.cos(angle) * r, Math.sin(angle) * r, layer * 0.1);
+              p.rotation.z = angle;
+              mandala.add(p);
+            }
+          }
+          mandala.userData.isInstallation = true;
+          mandala.userData.rotSpeed = 0.003;
+          mandala.userData.rotAxis = 'z';
+          installationGroup.add(mandala);
+          break;
+        }
+        case 'arabian': {
+          // 阿拉丁神灯 + 金烟
+          const lampBody = new THREE.Group();
+          const base = new THREE.Mesh(
+            new THREE.LatheGeometry([
+              new THREE.Vector2(0, 0), new THREE.Vector2(1.5, 0.5), new THREE.Vector2(2, 1),
+              new THREE.Vector2(1.8, 2), new THREE.Vector2(0.5, 2.5), new THREE.Vector2(0.3, 3),
+            ], 32),
+            new THREE.MeshStandardMaterial({ color: c.accent2, metalness:0.9, roughness:0.1 })
+          );
+          base.scale.set(2, 2, 2);
+          base.position.y = -8;
+          lampBody.add(base);
+          // 金色烟雾
+          const smokeGeo = new THREE.BufferGeometry();
+          const smokePos = new Float32Array(200 * 3);
+          for (let i = 0; i < 200; i++) {
+            const t = i / 200;
+            smokePos[i * 3] = (Math.random() - 0.5) * (2 + t * 4);
+            smokePos[i * 3 + 1] = t * 15 - 2;
+            smokePos[i * 3 + 2] = (Math.random() - 0.5) * (2 + t * 4);
+          }
+          smokeGeo.setAttribute('position', new THREE.BufferAttribute(smokePos, 3));
+          const smoke = new THREE.Points(smokeGeo, new THREE.PointsMaterial({
+            color: c.accent2, size:0.4, transparent:true, opacity:0.5, blending:THREE.AdditiveBlending
+          }));
+          smoke.userData.isSmoke = true;
+          lampBody.add(smoke);
+          installationGroup.add(lampBody);
+          break;
+        }
+        case 'watercolor': {
+          // 水彩云团
+          for (let i = 0; i < 12; i++) {
+            const cloud = new THREE.Mesh(
+              new THREE.SphereGeometry(2 + Math.random() * 3, 8, 8),
+              new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? c.accent : c.accent2, transparent:true, opacity:0.25 + Math.random() * 0.15
+              })
+            );
+            cloud.position.set((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 15);
+            cloud.scale.set(1 + Math.random(), 0.5 + Math.random() * 0.5, 1 + Math.random());
+            cloud.userData.isInstallation = true;
+            cloud.userData.floatPhase = Math.random() * Math.PI * 2;
+            cloud.userData.floatSpeed = 0.005;
+            installationGroup.add(cloud);
+          }
+          break;
+        }
+        case 'memphis': {
+          // 孟菲斯几何组合
+          const geos = [
+            () => new THREE.ConeGeometry(2, 4, 3),
+            () => new THREE.SphereGeometry(2, 16, 16),
+            () => new THREE.BoxGeometry(3, 3, 3),
+            () => new THREE.TorusGeometry(2, 0.5, 8, 20),
+            () => new THREE.CylinderGeometry(0.3, 0.3, 6, 8),
+          ];
+          const memColors = ['#ff6b6b','#4ecdc4','#ffd93d','#6c5ce7','#fd79a8'];
+          for (let i = 0; i < 15; i++) {
+            const mesh = new THREE.Mesh(
+              geos[i % geos.length](),
+              new THREE.MeshBasicMaterial({ color: memColors[i % memColors.length], transparent:true, opacity:0.7 })
+            );
+            mesh.position.set((Math.random() - 0.5) * 25, (Math.random() - 0.5) * 18, (Math.random() - 0.5) * 15);
+            mesh.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            mesh.userData.isInstallation = true;
+            mesh.userData.rotSpeed = (Math.random() - 0.5) * 0.01;
+            installationGroup.add(mesh);
+          }
+          break;
+        }
+        case 'bauhaus': {
+          // 三原色几何
+          const shapes = [
+            { geo: new THREE.CircleGeometry(4, 32), color:'#e63946', y:4, side:THREE.DoubleSide },
+            { geo: new THREE.BoxGeometry(6, 6, 0.2), color:'#457b9d', y:-2 },
+            { geo: new THREE.ConeGeometry(4, 7, 3), color:'#f1faee', y:0 },
+          ];
+          shapes.forEach((s, i) => {
+            const mesh = new THREE.Mesh(s.geo, new THREE.MeshBasicMaterial({ color:s.color, transparent:true, opacity:0.8, side:s.side || THREE.FrontSide }));
+            mesh.position.set((i - 1) * 8, s.y, 0);
+            mesh.userData.isInstallation = true;
+            mesh.userData.rotSpeed = 0.003;
+            installationGroup.add(mesh);
+          });
+          break;
+        }
+        case 'popart': {
+          // 波普重复圆点
+          for (let i = 0; i < 30; i++) {
+            const dot = new THREE.Mesh(
+              new THREE.CircleGeometry(0.5 + Math.random() * 1.5, 16),
+              new THREE.MeshBasicMaterial({
+                color: ['#ff1493','#00ff00','#ffff00','#ff4500','#00bfff'][i % 5],
+                transparent:true, opacity:0.7, side:THREE.DoubleSide
+              })
+            );
+            dot.position.set((Math.random() - 0.5) * 30, (Math.random() - 0.5) * 20, (Math.random() - 0.5) * 10);
+            installationGroup.add(dot);
+          }
+          break;
+        }
+        case 'gaming': {
+          // 游戏手柄形态
+          const padGroup = new THREE.Group();
+          const padBody = new THREE.Mesh(
+            new THREE.BoxGeometry(10, 6, 2, 4, 4, 1),
+            new THREE.MeshStandardMaterial({ color:'#1a1a2e', metalness:0.5, roughness:0.3 })
+          );
+          padGroup.add(padBody);
+          // 按钮
+          const btnColors = [c.accent, c.accent2, '#ff0000', '#00ff00'];
+          btnColors.forEach((bc, i) => {
+            const btn = new THREE.Mesh(
+              new THREE.SphereGeometry(0.5, 16, 16),
+              new THREE.MeshBasicMaterial({ color:bc })
+            );
+            btn.position.set(3 + (i % 2), 1 - Math.floor(i / 2), 1.2);
+            padGroup.add(btn);
+          });
+          padGroup.userData.isInstallation = true;
+          padGroup.userData.rotSpeed = 0.005;
+          installationGroup.add(padGroup);
+          break;
+        }
+        case 'music': {
+          // 音波可视化
+          for (let i = 0; i < 48; i++) {
+            const h = 3 + Math.random() * 10;
+            const bar = new THREE.Mesh(
+              new THREE.BoxGeometry(0.6, h, 0.6),
+              new THREE.MeshBasicMaterial({ color: i % 2 ? c.accent : c.accent2, transparent:true, opacity:0.7 })
+            );
+            bar.position.set(i * 0.8 - 19, h / 2 - 8, 0);
+            bar.userData.baseHeight = h;
+            bar.userData.barPhase = i * 0.2;
+            bar.userData.isBar = true;
+            installationGroup.add(bar);
+          }
+          break;
+        }
+        case 'marble': {
+          // 大理石雕塑
+          const sculpture = new THREE.Mesh(
+            new THREE.DodecahedronGeometry(6, 1),
+            new THREE.MeshStandardMaterial({ color:'#e8e8e8', metalness:0.1, roughness:0.3 })
+          );
+          sculpture.userData.isInstallation = true;
+          sculpture.userData.rotSpeed = 0.002;
+          installationGroup.add(sculpture);
+          const pedestal = new THREE.Mesh(
+            new THREE.CylinderGeometry(3, 4, 3, 8),
+            new THREE.MeshStandardMaterial({ color:'#d0d0d0', metalness:0.1, roughness:0.3 })
+          );
+          pedestal.position.y = -10;
+          installationGroup.add(pedestal);
+          break;
+        }
+        case 'metal': {
+          // 液态金属球
+          const metalSphere = new THREE.Mesh(
+            new THREE.IcosahedronGeometry(6, 4),
+            new THREE.MeshStandardMaterial({ color:'#b0b0b0', metalness:1, roughness:0 })
+          );
+          metalSphere.userData.isInstallation = true;
+          metalSphere.userData.rotSpeed = 0.003;
+          metalSphere.userData.isMetal = true;
+          installationGroup.add(metalSphere);
+          break;
+        }
+        case 'fashion': {
+          // T台聚光灯
+          for (let i = 0; i < 6; i++) {
+            const spotlight = new THREE.Mesh(
+              new THREE.ConeGeometry(3, 30, 16, 1, true),
+              new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.08, side:THREE.DoubleSide })
+            );
+            spotlight.position.set((i - 2.5) * 6, 15, -5);
+            spotlight.rotation.x = Math.PI;
+            installationGroup.add(spotlight);
+          }
+          // 人形剪影
+          const silhouette = new THREE.Mesh(
+            new THREE.CylinderGeometry(1, 1.5, 10, 8),
+            new THREE.MeshBasicMaterial({ color:'#000', transparent:true, opacity:0.8 })
+          );
+          silhouette.position.y = -5;
+          const sHead = new THREE.Mesh(
+            new THREE.SphereGeometry(1.2, 16, 16),
+            new THREE.MeshBasicMaterial({ color:'#000', transparent:true, opacity:0.8 })
+          );
+          sHead.position.y = 1;
+          silhouette.add(sHead);
+          installationGroup.add(silhouette);
+          break;
+        }
+        case 'finance': {
+          // K线图
+          for (let i = 0; i < 20; i++) {
+            const h = 2 + Math.random() * 10;
+            const isUp = Math.random() > 0.4;
+            const candle = new THREE.Mesh(
+              new THREE.BoxGeometry(0.8, h, 0.8),
+              new THREE.MeshBasicMaterial({ color: isUp ? c.accent : c.accent2, transparent:true, opacity:0.8 })
+            );
+            candle.position.set(i * 1.5 - 15, h / 2 - 10, 0);
+            // 影线
+            const wick = new THREE.Mesh(
+              new THREE.BoxGeometry(0.1, h + 3, 0.1),
+              new THREE.MeshBasicMaterial({ color: isUp ? c.accent : c.accent2, transparent:true, opacity:0.5 })
+            );
+            wick.position.set(i * 1.5 - 15, h / 2 - 10, 0);
+            installationGroup.add(candle, wick);
+          }
+          break;
+        }
+        case 'travel': {
+          // 地球仪
+          const globe = new THREE.Mesh(
+            new THREE.SphereGeometry(6, 32, 32),
+            new THREE.MeshBasicMaterial({ color: c.accent, wireframe:true, transparent:true, opacity:0.4 })
+          );
+          globe.userData.isInstallation = true;
+          globe.userData.rotSpeed = 0.003;
+          installationGroup.add(globe);
+          // 飞行路径环
+          for (let i = 0; i < 3; i++) {
+            const path = new THREE.Mesh(
+              new THREE.TorusGeometry(7 + i, 0.05, 8, 100),
+              new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.5 })
+            );
+            path.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+            path.userData.isInstallation = true;
+            path.userData.rotSpeed = 0.005 + i * 0.002;
+            installationGroup.add(path);
+          }
+          break;
+        }
+        case 'weirdcore': {
+          // 扭曲的眼睛和门
+          for (let i = 0; i < 8; i++) {
+            const eye = new THREE.Group();
+            const white = new THREE.Mesh(
+              new THREE.SphereGeometry(1.5, 16, 16),
+              new THREE.MeshBasicMaterial({ color:'#fff' })
+            );
+            const pupil = new THREE.Mesh(
+              new THREE.SphereGeometry(0.6, 16, 16),
+              new THREE.MeshBasicMaterial({ color:'#000' })
+            );
+            pupil.position.z = 1;
+            eye.add(white, pupil);
+            eye.position.set((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 15, (Math.random() - 0.5) * 15);
+            eye.scale.setScalar(0.5 + Math.random() * 1);
+            eye.userData.lookPhase = Math.random() * Math.PI * 2;
+            eye.userData.isEye = true;
+            installationGroup.add(eye);
+          }
+          break;
+        }
+        case 'dreamcore': {
+          // 漂浮的门和楼梯
+          for (let i = 0; i < 4; i++) {
+            const door = new THREE.Mesh(
+              new THREE.BoxGeometry(3, 5, 0.3),
+              new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c.accent : c.accent2, transparent:true, opacity:0.5 })
+            );
+            door.position.set((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 15);
+            door.rotation.y = Math.random() * Math.PI;
+            door.userData.floatPhase = Math.random() * Math.PI * 2;
+            door.userData.floatSpeed = 0.005 + Math.random() * 0.005;
+            installationGroup.add(door);
+          }
+          // 漂浮楼梯
+          for (let i = 0; i < 10; i++) {
+            const step = new THREE.Mesh(
+              new THREE.BoxGeometry(3, 0.3, 1.5),
+              new THREE.MeshBasicMaterial({ color: c.accent, transparent:true, opacity:0.4 })
+            );
+            step.position.set(Math.sin(i * 0.5) * 3, i * 1.5 - 8, Math.cos(i * 0.5) * 3);
+            installationGroup.add(step);
+          }
+          break;
+        }
+        case 'solarpunk': {
+          // 未来绿色城市
+          for (let i = 0; i < 8; i++) {
+            const building = new THREE.Mesh(
+              new THREE.CylinderGeometry(1 + Math.random(), 1.5 + Math.random(), 5 + Math.random() * 10, 8),
+              new THREE.MeshStandardMaterial({ color: i % 2 === 0 ? c.accent : c.accent2, metalness:0.3, roughness:0.5 })
+            );
+            building.position.set((Math.random() - 0.5) * 20, -10 + building.geometry.parameters.height / 2, (Math.random() - 0.5) * 15);
+            installationGroup.add(building);
+            // 植物球
+            const plant = new THREE.Mesh(
+              new THREE.SphereGeometry(1 + Math.random(), 8, 8),
+              new THREE.MeshBasicMaterial({ color:'#228b22', transparent:true, opacity:0.6 })
+            );
+            plant.position.copy(building.position);
+            plant.position.y += building.geometry.parameters.height / 2 + 1;
+            installationGroup.add(plant);
+          }
+          break;
+        }
+        case 'darkacademia': {
+          // 书架
+          for (let i = 0; i < 5; i++) {
+            const shelf = new THREE.Mesh(
+              new THREE.BoxGeometry(12, 0.3, 2),
+              new THREE.MeshStandardMaterial({ color:'#3c2415', roughness:0.8 })
+            );
+            shelf.position.set(0, i * 3 - 8, -5);
+            installationGroup.add(shelf);
+            // 书本
+            for (let b = 0; b < 8; b++) {
+              const book = new THREE.Mesh(
+                new THREE.BoxGeometry(0.5 + Math.random() * 0.3, 2, 1.5),
+                new THREE.MeshBasicMaterial({ color: ['#8b0000','#006400','#00008b','#4b0082','#8b4513'][Math.floor(Math.random() * 5)] })
+              );
+              book.position.set(b * 1.4 - 5, i * 3 - 7, -5);
+              installationGroup.add(book);
+            }
+          }
+          // 蜡烛
+          const candle = new THREE.Mesh(
+            new THREE.CylinderGeometry(0.2, 0.2, 2, 8),
+            new THREE.MeshBasicMaterial({ color:'#f5deb3' })
+          );
+          candle.position.set(5, -5, 0);
+          installationGroup.add(candle);
+          const flame = new THREE.Mesh(
+            new THREE.ConeGeometry(0.15, 0.5, 8),
+            new THREE.MeshBasicMaterial({ color:'#ff8c00' })
+          );
+          flame.position.set(5, -3.7, 0);
+          flame.userData.isFlame = true;
+          installationGroup.add(flame);
+          break;
+        }
+        case 'victorian': {
+          // 华丽金色相框
+          const frame = new THREE.Group();
+          const outerFrame = new THREE.Mesh(
+            new THREE.BoxGeometry(12, 16, 1),
+            new THREE.MeshStandardMaterial({ color: c.accent2, metalness:0.8, roughness:0.2 })
+          );
+          frame.add(outerFrame);
+          const innerCut = new THREE.Mesh(
+            new THREE.BoxGeometry(9, 13, 1.1),
+            new THREE.MeshBasicMaterial({ color: '#1a0010' })
+          );
+          frame.add(innerCut);
+          // 装饰角
+          for (let cx = -1; cx <= 1; cx += 2) {
+            for (let cy = -1; cy <= 1; cy += 2) {
+              const corner = new THREE.Mesh(
+                new THREE.SphereGeometry(0.8, 8, 8),
+                new THREE.MeshStandardMaterial({ color: c.accent2, metalness:0.9, roughness:0.1 })
+              );
+              corner.position.set(cx * 5.5, cy * 7.5, 0.5);
+              frame.add(corner);
+            }
+          }
+          frame.userData.isInstallation = true;
+          frame.userData.floatPhase = 0;
+          frame.userData.floatSpeed = 0.003;
+          installationGroup.add(frame);
+          break;
+        }
+        case 'stormy': {
+          // 漩涡云
+          const vortex = new THREE.Group();
+          for (let i = 0; i < 30; i++) {
+            const t = i / 30;
+            const angle = t * Math.PI * 6;
+            const r = t * 12;
+            const cloud = new THREE.Mesh(
+              new THREE.SphereGeometry(1 + t * 2, 8, 8),
+              new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? c.accent2 : '#333', transparent:true, opacity:0.4 })
+            );
+            cloud.position.set(Math.cos(angle) * r, 5, Math.sin(angle) * r);
+            vortex.add(cloud);
+          }
+          vortex.userData.isInstallation = true;
+          vortex.userData.rotSpeed = 0.01;
+          installationGroup.add(vortex);
+          break;
+        }
+        case 'frutiger': {
+          // 透明气泡
+          for (let i = 0; i < 15; i++) {
+            const bubble = new THREE.Mesh(
+              new THREE.SphereGeometry(1 + Math.random() * 3, 32, 32),
+              new THREE.MeshPhysicalMaterial({
+                color: i % 2 === 0 ? c.accent : c.accent2,
+                metalness:0, roughness:0, transparent:true, opacity:0.25
+              })
+            );
+            bubble.position.set((Math.random() - 0.5) * 25, (Math.random() - 0.5) * 15, (Math.random() - 0.5) * 15);
+            bubble.userData.floatPhase = Math.random() * Math.PI * 2;
+            bubble.userData.floatSpeed = 0.008 + Math.random() * 0.005;
+            installationGroup.add(bubble);
+          }
+          break;
+        }
+        case 'luxury': {
+          // 金色钻石
+          const diamond = new THREE.Mesh(
+            new THREE.OctahedronGeometry(5, 0),
+            new THREE.MeshStandardMaterial({ color: c.accent, metalness:1, roughness:0 })
+          );
+          diamond.scale.y = 1.5;
+          diamond.userData.isInstallation = true;
+          diamond.userData.rotSpeed = 0.005;
+          installationGroup.add(diamond);
+          // 金线
+          for (let i = 0; i < 4; i++) {
+            const ring = new THREE.Mesh(
+              new THREE.TorusGeometry(8 + i * 2, 0.05, 8, 100),
+              new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.4 })
+            );
+            ring.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+            ring.userData.isInstallation = true;
+            ring.userData.rotSpeed = 0.003 * (i + 1);
+            installationGroup.add(ring);
+          }
+          break;
+        }
+        case 'neumorphism':
+        case 'clay': {
+          // 柔和凹凸球组
+          for (let i = 0; i < 7; i++) {
+            const softSphere = new THREE.Mesh(
+              new THREE.SphereGeometry(2 + Math.random() * 2, 32, 32),
+              new THREE.MeshStandardMaterial({
+                color: i % 2 === 0 ? c.accent : c.accent2,
+                metalness:0, roughness:0.8
+              })
+            );
+            softSphere.position.set((Math.random() - 0.5) * 15, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+            softSphere.userData.floatPhase = Math.random() * Math.PI * 2;
+            softSphere.userData.floatSpeed = 0.008;
+            softSphere.userData.isBounce = true;
+            installationGroup.add(softSphere);
+          }
+          break;
+        }
+        case 'greek': {
+          for (let i = 0; i < 6; i++) {
+            const col = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.6, 12, 16), new THREE.MeshStandardMaterial({ color:'#e8e0d0', roughness:0.5 }));
+            col.position.set((i - 2.5) * 4, -9, -5);
+            installationGroup.add(col);
+            const cap = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.5, 1.5), new THREE.MeshStandardMaterial({ color:'#e8e0d0', roughness:0.5 }));
+            cap.position.set((i - 2.5) * 4, -3, -5);
+            installationGroup.add(cap);
+          }
+          const beam = new THREE.Mesh(new THREE.BoxGeometry(25, 1, 2), new THREE.MeshStandardMaterial({ color:'#e8e0d0', roughness:0.5 }));
+          beam.position.set(0, -2.5, -5);
+          installationGroup.add(beam);
+          break;
+        }
+        case 'gradient': {
+          // 渐变流体球：多个半透明球缓慢融合漂移
+          for (let i = 0; i < 8; i++) {
+            const blob = new THREE.Mesh(
+              new THREE.SphereGeometry(2 + Math.random() * 3, 32, 32),
+              new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c.accent : c.accent2, transparent:true, opacity:0.3 })
+            );
+            blob.position.set((Math.random() - 0.5) * 15, (Math.random() - 0.5) * 10, (Math.random() - 0.5) * 10);
+            blob.userData.floatPhase = Math.random() * Math.PI * 2;
+            blob.userData.floatSpeed = 0.008;
+            blob.userData.orbitRadius = 3 + Math.random() * 5;
+            blob.userData.orbitSpeed = 0.003 + Math.random() * 0.005;
+            blob.userData.isOrbit = true;
+            installationGroup.add(blob);
+          }
+          break;
+        }
+        case 'zen': {
+          // 枯山水：石头 + 砂纹同心圆
+          const stones = [[0, -12, 0, 2.5], [-6, -12.5, -3, 1.5], [5, -12.8, 2, 1]];
+          stones.forEach(([x, y, z, r]) => {
+            const stone = new THREE.Mesh(new THREE.SphereGeometry(r, 12, 12), new THREE.MeshStandardMaterial({ color:'#606060', roughness:0.95 }));
+            stone.position.set(x, y, z); stone.scale.y = 0.6;
+            installationGroup.add(stone);
+            // 同心圆砂纹
+            for (let ri = 1; ri <= 4; ri++) {
+              const ring = new THREE.Mesh(
+                new THREE.TorusGeometry(r + ri * 1.2, 0.03, 8, 80),
+                new THREE.MeshBasicMaterial({ color:'#a09080', transparent:true, opacity:0.4 })
+              );
+              ring.rotation.x = Math.PI / 2; ring.position.set(x, -14.8, z);
+              installationGroup.add(ring);
+            }
+          });
+          break;
+        }
+        case 'midnight': {
+          // 星座连线 + 月亮
+          const starPositions = [];
+          for (let i = 0; i < 20; i++) {
+            const star = new THREE.Mesh(new THREE.SphereGeometry(0.2, 8, 8), new THREE.MeshBasicMaterial({ color:'#fff' }));
+            const pos = new THREE.Vector3((Math.random() - 0.5) * 30, Math.random() * 15, (Math.random() - 0.5) * 20 - 10);
+            star.position.copy(pos); starPositions.push(pos);
+            installationGroup.add(star);
+          }
+          // 连线
+          for (let i = 0; i < starPositions.length - 1; i++) {
+            if (starPositions[i].distanceTo(starPositions[i + 1]) < 15) {
+              const lineGeo = new THREE.BufferGeometry().setFromPoints([starPositions[i], starPositions[i + 1]]);
+              installationGroup.add(new THREE.Line(lineGeo, new THREE.LineBasicMaterial({ color:'#4b0082', transparent:true, opacity:0.3 })));
+            }
+          }
+          break;
+        }
+        case 'desert': {
+          // 金字塔群
+          for (let i = 0; i < 3; i++) {
+            const pyramid = new THREE.Mesh(
+              new THREE.ConeGeometry(4 + i * 2, 8 + i * 3, 4),
+              new THREE.MeshStandardMaterial({ color: c.accent, metalness:0.2, roughness:0.8 })
+            );
+            pyramid.position.set((i - 1) * 10, -11 + (8 + i * 3) / 2, -5);
+            pyramid.rotation.y = Math.PI / 4;
+            installationGroup.add(pyramid);
+          }
+          break;
+        }
+        case 'github': {
+          // 贡献热力图 3D
+          for (let w = 0; w < 20; w++) {
+            for (let d = 0; d < 7; d++) {
+              const intensity = Math.random();
+              if (intensity < 0.3) continue;
+              const cell = new THREE.Mesh(
+                new THREE.BoxGeometry(0.8, intensity * 5, 0.8),
+                new THREE.MeshBasicMaterial({ color: new THREE.Color(c.accent).multiplyScalar(0.3 + intensity * 0.7), transparent:true, opacity:0.6 + intensity * 0.4 })
+              );
+              cell.position.set(w * 1 - 10, intensity * 2.5 - 10, d * 1 - 3);
+              installationGroup.add(cell);
+            }
+          }
+          break;
+        }
+        case 'discord': {
+          // 消息气泡群
+          for (let i = 0; i < 12; i++) {
+            const bubble = new THREE.Mesh(
+              new THREE.BoxGeometry(4 + Math.random() * 4, 1.5, 0.3),
+              new THREE.MeshBasicMaterial({ color: i % 3 === 0 ? c.accent : c.accent2, transparent:true, opacity:0.5 })
+            );
+            bubble.position.set((i % 2 === 0 ? -1 : 1) * (3 + Math.random() * 3), i * 2 - 12, Math.random() * 5);
+            bubble.userData.floatPhase = i * 0.5; bubble.userData.floatSpeed = 0.005;
+            installationGroup.add(bubble);
+          }
+          break;
+        }
+        case 'figma': {
+          // Figma四色旋转组件
+          const figmaColors = ['#f24e1e','#ff7262','#a259ff','#1abcfe','#0acf83'];
+          figmaColors.forEach((fc, i) => {
+            const shape = new THREE.Mesh(
+              i < 2 ? new THREE.CircleGeometry(2, 32) : new THREE.BoxGeometry(3.5, 3.5, 0.3),
+              new THREE.MeshBasicMaterial({ color:fc, side:THREE.DoubleSide })
+            );
+            const angle = (i / figmaColors.length) * Math.PI * 2;
+            shape.position.set(Math.cos(angle) * 6, Math.sin(angle) * 6, 0);
+            shape.userData.isInstallation = true; shape.userData.rotSpeed = 0.005;
+            installationGroup.add(shape);
+          });
+          break;
+        }
+        case 'stripe':
+        case 'linear': {
+          // 渐变光束
+          for (let i = 0; i < 8; i++) {
+            const ray = new THREE.Mesh(
+              new THREE.PlaneGeometry(0.5, 30),
+              new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c.accent : c.accent2, transparent:true, opacity:0.2, side:THREE.DoubleSide })
+            );
+            ray.position.z = -10; ray.rotation.z = (i / 8) * Math.PI;
+            ray.userData.isInstallation = true; ray.userData.rotSpeed = 0.002;
+            installationGroup.add(ray);
+          }
+          // 中心球
+          const core = new THREE.Mesh(new THREE.SphereGeometry(3, 32, 32), new THREE.MeshBasicMaterial({ color: c.accent, transparent:true, opacity:0.6 }));
+          core.userData.isInstallation = true; core.userData.rotSpeed = 0.01;
+          installationGroup.add(core);
+          break;
+        }
+        case 'fluent': {
+          // 亚克力层叠玻璃板
+          for (let i = 0; i < 5; i++) {
+            const panel = new THREE.Mesh(
+              new THREE.PlaneGeometry(10, 7),
+              new THREE.MeshPhysicalMaterial({ color: i % 2 === 0 ? c.accent : c.accent2, metalness:0.1, roughness:0.1, transparent:true, opacity:0.25, side:THREE.DoubleSide })
+            );
+            panel.position.set(i * 1.5 - 3, i * 0.5 - 1, i * 2 - 4);
+            panel.rotation.y = -0.2;
+            installationGroup.add(panel);
+          }
+          break;
+        }
+        case 'notion': {
+          // 模块化笔记块
+          const blockSizes = [[6,2],[4,1.5],[5,2.5],[3,1],[7,1.5],[4,2]];
+          blockSizes.forEach(([w, h], i) => {
+            const block = new THREE.Mesh(
+              new THREE.BoxGeometry(w, h, 0.2),
+              new THREE.MeshBasicMaterial({ color: i === 0 ? '#ffffff' : '#404040', transparent:true, opacity: i === 0 ? 0.8 : 0.4 })
+            );
+            block.position.set((i % 2) * 5 - 2.5, i * 2.5 - 8, 0);
+            installationGroup.add(block);
+          });
+          break;
+        }
+        case 'korean': {
+          // 韩服色彩飘带
+          for (let i = 0; i < 6; i++) {
+            const ribbon = new THREE.Mesh(
+              new THREE.PlaneGeometry(12, 1, 20, 1),
+              new THREE.MeshBasicMaterial({ color: ['#ffb6c1','#87ceeb','#fff5ee','#e6e6fa','#f0fff0','#ffefd5'][i], transparent:true, opacity:0.5, side:THREE.DoubleSide })
+            );
+            ribbon.position.set(0, i * 2 - 5, -2 + i * 0.5);
+            ribbon.userData.wavePhase = i * 0.8; ribbon.userData.isWave = true;
+            installationGroup.add(ribbon);
+          }
+          break;
+        }
+        case 'african': {
+          // 部落面具群
+          for (let i = 0; i < 5; i++) {
+            const mask = new THREE.Group();
+            const face = new THREE.Mesh(new THREE.CylinderGeometry(1.5, 1, 3, 6), new THREE.MeshStandardMaterial({ color: c.accent, roughness:0.9 }));
+            mask.add(face);
+            const eyeL = new THREE.Mesh(new THREE.CircleGeometry(0.3, 6), new THREE.MeshBasicMaterial({ color:'#000', side:THREE.DoubleSide }));
+            eyeL.position.set(-0.5, 0.5, 1); mask.add(eyeL);
+            const eyeR = eyeL.clone(); eyeR.position.x = 0.5; mask.add(eyeR);
+            mask.position.set((i - 2) * 5, (i % 2) * 3 - 2, 0);
+            mask.rotation.y = (Math.random() - 0.5) * 0.5;
+            mask.userData.isInstallation = true; mask.userData.rotSpeed = 0.002;
+            installationGroup.add(mask);
+          }
+          break;
+        }
+        case 'mediterranean': {
+          // 蓝白教堂圆顶
+          const church = new THREE.Group();
+          const base = new THREE.Mesh(new THREE.BoxGeometry(6, 6, 6), new THREE.MeshStandardMaterial({ color:'#ffffff', roughness:0.6 }));
+          base.position.y = -9;
+          church.add(base);
+          const dome = new THREE.Mesh(new THREE.SphereGeometry(3.5, 32, 16, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshStandardMaterial({ color:'#1e90ff', roughness:0.3 }));
+          dome.position.y = -6;
+          church.add(dome);
+          const cross = new THREE.Mesh(new THREE.BoxGeometry(0.2, 2, 0.2), new THREE.MeshBasicMaterial({ color:'#ffd700' }));
+          cross.position.y = -3;
+          church.add(cross);
+          installationGroup.add(church);
+          // 第二个小教堂
+          const church2 = church.clone();
+          church2.position.set(8, 1, -3); church2.scale.setScalar(0.7);
+          installationGroup.add(church2);
+          break;
+        }
+        case 'dieselpunk': {
+          // 粗犷管道和铆钉
+          for (let i = 0; i < 6; i++) {
+            const pipe = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.4, 0.4, 15 + Math.random() * 10, 8),
+              new THREE.MeshStandardMaterial({ color:'#555', metalness:0.8, roughness:0.3 })
+            );
+            pipe.position.set((Math.random() - 0.5) * 15, -5, (Math.random() - 0.5) * 10);
+            pipe.rotation.z = (Math.random() - 0.5) * 1;
+            installationGroup.add(pipe);
+          }
+          // 大齿轮
+          const bigGear = new THREE.Mesh(new THREE.TorusGeometry(5, 1, 8, 12), new THREE.MeshStandardMaterial({ color:'#8b4513', metalness:0.7, roughness:0.3 }));
+          bigGear.userData.isInstallation = true; bigGear.userData.rotSpeed = 0.005; bigGear.userData.rotAxis = 'z';
+          installationGroup.add(bigGear);
+          break;
+        }
+        case 'comic': {
+          // POW! BANG! 爆炸形状
+          for (let i = 0; i < 3; i++) {
+            const burst = new THREE.Mesh(
+              new THREE.CircleGeometry(4, i === 0 ? 12 : 8),
+              new THREE.MeshBasicMaterial({ color: ['#ffff00','#ff0000','#ffffff'][i], transparent:true, opacity:0.8, side:THREE.DoubleSide })
+            );
+            burst.position.set((i - 1) * 8, (i - 1) * 2, 0);
+            burst.scale.set(1 + i * 0.3, 1 + i * 0.2, 1);
+            burst.userData.isInstallation = true; burst.userData.rotSpeed = 0.003 * (i + 1); burst.userData.rotAxis = 'z';
+            installationGroup.add(burst);
+          }
+          break;
+        }
+        case 'sketch': {
+          // 手绘线条几何体
+          for (let i = 0; i < 8; i++) {
+            const wireGeo = [new THREE.BoxGeometry(4,4,4), new THREE.SphereGeometry(3,6,6), new THREE.ConeGeometry(3,5,5)][i % 3];
+            const wireObj = new THREE.Mesh(wireGeo, new THREE.MeshBasicMaterial({ color:'#808080', wireframe:true, transparent:true, opacity:0.6 }));
+            wireObj.position.set((Math.random() - 0.5) * 20, (Math.random() - 0.5) * 12, (Math.random() - 0.5) * 10);
+            wireObj.userData.isInstallation = true; wireObj.userData.rotSpeed = (Math.random() - 0.5) * 0.005;
+            installationGroup.add(wireObj);
+          }
+          break;
+        }
+        case 'abstract': {
+          // 康定斯基风格构成
+          const absShapes = [
+            { geo: new THREE.CircleGeometry(5, 32), color:'#ff6347', pos:[0,2,0] },
+            { geo: new THREE.BoxGeometry(8, 0.3, 0.3), color:'#4169e1', pos:[0,-3,0] },
+            { geo: new THREE.ConeGeometry(3, 6, 3), color:'#ffd700', pos:[-6,0,0] },
+            { geo: new THREE.TorusGeometry(3, 0.2, 8, 40), color:'#ff6347', pos:[6,-1,0] },
+            { geo: new THREE.BoxGeometry(4, 4, 0.2), color:'#4169e1', pos:[3,5,0] },
+          ];
+          absShapes.forEach((s, i) => {
+            const mesh = new THREE.Mesh(s.geo, new THREE.MeshBasicMaterial({ color:s.color, transparent:true, opacity:0.7, side:THREE.DoubleSide }));
+            mesh.position.set(...s.pos);
+            mesh.rotation.z = i * 0.3;
+            mesh.userData.isInstallation = true; mesh.userData.rotSpeed = 0.002 * (i % 2 === 0 ? 1 : -1);
+            installationGroup.add(mesh);
+          });
+          break;
+        }
+        case 'brutal':
+        case 'poster': {
+          // 厚重3D文字块
+          for (let i = 0; i < 5; i++) {
+            const block = new THREE.Mesh(
+              new THREE.BoxGeometry(3 + Math.random() * 5, 2 + Math.random() * 3, 2),
+              new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c.accent : c.accent2, transparent:true, opacity:0.8 })
+            );
+            block.position.set((Math.random() - 0.5) * 15, i * 3 - 8, -2 + Math.random() * 4);
+            // 硬阴影
+            const shadow = block.clone();
+            shadow.material = new THREE.MeshBasicMaterial({ color:'#000', transparent:true, opacity:0.3 });
+            shadow.position.x += 0.5; shadow.position.y -= 0.5;
+            installationGroup.add(shadow);
+            installationGroup.add(block);
+          }
+          break;
+        }
+        case 'energetic':
+        case 'sports': {
+          // 能量爆发球
+          const energyCore = new THREE.Mesh(new THREE.SphereGeometry(3, 32, 32), new THREE.MeshBasicMaterial({ color: c.accent }));
+          energyCore.userData.isInstallation = true; energyCore.userData.rotSpeed = 0.02;
+          installationGroup.add(energyCore);
+          // 射线
+          for (let i = 0; i < 16; i++) {
+            const ray = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.05, 0.3, 12, 4),
+              new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.5 })
+            );
+            const angle = (i / 16) * Math.PI * 2;
+            ray.position.set(Math.cos(angle) * 8, Math.sin(angle) * 8, 0);
+            ray.rotation.z = angle - Math.PI / 2;
+            ray.userData.isInstallation = true; ray.userData.rotSpeed = 0.003;
+            installationGroup.add(ray);
+          }
+          break;
+        }
+        case 'mysterious': {
+          // 神秘符文魔法阵
+          for (let ring = 0; ring < 3; ring++) {
+            const runeRing = new THREE.Mesh(
+              new THREE.TorusGeometry(5 + ring * 3, 0.1, 8, 60),
+              new THREE.MeshBasicMaterial({ color: c.accent, transparent:true, opacity:0.5 })
+            );
+            runeRing.rotation.x = Math.PI / 2;
+            runeRing.userData.isInstallation = true;
+            runeRing.userData.rotSpeed = 0.005 * (ring % 2 === 0 ? 1 : -1);
+            installationGroup.add(runeRing);
+            // 符文球
+            for (let j = 0; j < 6; j++) {
+              const rune = new THREE.Mesh(new THREE.OctahedronGeometry(0.4), new THREE.MeshBasicMaterial({ color: c.accent2 }));
+              const a = (j / 6) * Math.PI * 2;
+              rune.position.set(Math.cos(a) * (5 + ring * 3), 0, Math.sin(a) * (5 + ring * 3));
+              installationGroup.add(rune);
+            }
+          }
+          break;
+        }
+        case 'cheerful':
+        case 'kids': {
+          // 彩色气球群
+          const balloonColors = ['#ff69b4','#ffd700','#00ced1','#ff6347','#98fb98','#dda0dd'];
+          for (let i = 0; i < 10; i++) {
+            const balloon = new THREE.Mesh(new THREE.SphereGeometry(1 + Math.random(), 16, 16), new THREE.MeshBasicMaterial({ color: balloonColors[i % balloonColors.length] }));
+            balloon.position.set((Math.random() - 0.5) * 20, Math.random() * 10, (Math.random() - 0.5) * 15);
+            balloon.scale.y = 1.3;
+            balloon.userData.floatPhase = Math.random() * Math.PI * 2; balloon.userData.floatSpeed = 0.008;
+            // 绳子
+            const string = new THREE.Mesh(new THREE.CylinderGeometry(0.02, 0.02, 4, 4), new THREE.MeshBasicMaterial({ color:'#888' }));
+            string.position.y = -2.5;
+            balloon.add(string);
+            installationGroup.add(balloon);
+          }
+          break;
+        }
+        case 'swiss': {
+          // 精确红色十字+网格
+          const cross1 = new THREE.Mesh(new THREE.BoxGeometry(2, 8, 1), new THREE.MeshBasicMaterial({ color:'#ff0000' }));
+          const cross2 = new THREE.Mesh(new THREE.BoxGeometry(8, 2, 1), new THREE.MeshBasicMaterial({ color:'#ff0000' }));
+          installationGroup.add(cross1, cross2);
+          // 网格参考线
+          for (let i = -5; i <= 5; i++) {
+            const hLine = new THREE.Mesh(new THREE.BoxGeometry(30, 0.02, 0.02), new THREE.MeshBasicMaterial({ color:'#333', transparent:true, opacity:0.3 }));
+            hLine.position.y = i * 2;
+            const vLine = new THREE.Mesh(new THREE.BoxGeometry(0.02, 30, 0.02), new THREE.MeshBasicMaterial({ color:'#333', transparent:true, opacity:0.3 }));
+            vLine.position.x = i * 2;
+            installationGroup.add(hLine, vLine);
+          }
+          break;
+        }
+        case 'nordic': {
+          // 简洁木质家具轮廓
+          // 椅子
+          const seat = new THREE.Mesh(new THREE.BoxGeometry(3, 0.3, 3), new THREE.MeshStandardMaterial({ color:'#deb887', roughness:0.8 }));
+          seat.position.set(-4, -10, 0);
+          installationGroup.add(seat);
+          for (let leg = 0; leg < 4; leg++) {
+            const l = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 4, 8), new THREE.MeshStandardMaterial({ color:'#deb887', roughness:0.8 }));
+            l.position.set(-4 + (leg % 2 === 0 ? -1 : 1), -12, (leg < 2 ? -1 : 1));
+            installationGroup.add(l);
+          }
+          // 灯
+          const lamp = new THREE.Mesh(new THREE.SphereGeometry(2, 16, 16), new THREE.MeshBasicMaterial({ color: c.accent, transparent:true, opacity:0.5 }));
+          lamp.position.set(5, 2, 0);
+          const lampLine = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 8, 4), new THREE.MeshBasicMaterial({ color:'#333' }));
+          lampLine.position.set(5, 6, 0);
+          installationGroup.add(lamp, lampLine);
+          break;
+        }
+        case 'muji':
+        case 'handmade': {
+          // 陶瓷器皿
+          for (let i = 0; i < 4; i++) {
+            const pot = new THREE.Mesh(
+              new THREE.LatheGeometry([
+                new THREE.Vector2(0,0), new THREE.Vector2(1 + i * 0.3, 0.5), new THREE.Vector2(1.2 + i * 0.2, 2), new THREE.Vector2(0.8 + i * 0.1, 3), new THREE.Vector2(0.9 + i * 0.2, 3.2),
+              ], 16),
+              new THREE.MeshStandardMaterial({ color: c.accent, roughness:0.9 })
+            );
+            pot.position.set((i - 1.5) * 5, -12, 0);
+            installationGroup.add(pot);
+          }
+          break;
+        }
+        case 'mono': {
+          // 黑白棋盘嵌套
+          for (let i = 0; i < 5; i++) {
+            const box = new THREE.Mesh(
+              new THREE.BoxGeometry(10 - i * 2, 10 - i * 2, 10 - i * 2),
+              new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? '#ffffff' : '#000000', wireframe: i % 2 === 1, transparent:true, opacity: i % 2 === 0 ? 0.3 : 0.6 })
+            );
+            box.userData.isInstallation = true; box.userData.rotSpeed = 0.003 * (i % 2 === 0 ? 1 : -1);
+            installationGroup.add(box);
+          }
+          break;
+        }
+        case 'flat': {
+          // 扁平图标网格
+          const flatColors = ['#3498db','#e74c3c','#2ecc71','#f39c12','#9b59b6','#1abc9c'];
+          for (let i = 0; i < 9; i++) {
+            const icon = new THREE.Mesh(
+              i % 3 === 0 ? new THREE.CircleGeometry(2, 32) : new THREE.BoxGeometry(3, 3, 0.1),
+              new THREE.MeshBasicMaterial({ color: flatColors[i % flatColors.length], side:THREE.DoubleSide })
+            );
+            icon.position.set(((i % 3) - 1) * 5, (Math.floor(i / 3) - 1) * 5, 0);
+            installationGroup.add(icon);
+          }
+          break;
+        }
+        case 'nature': {
+          // 生长的大树
+          const treeT = new THREE.Mesh(new THREE.CylinderGeometry(0.4, 0.8, 10, 8), new THREE.MeshStandardMaterial({ color:'#4a3728', roughness:0.9 }));
+          treeT.position.y = -10;
+          installationGroup.add(treeT);
+          // 分支
+          for (let i = 0; i < 20; i++) {
+            const leaf = new THREE.Mesh(new THREE.SphereGeometry(1.5 + Math.random() * 2, 8, 8), new THREE.MeshBasicMaterial({ color: Math.random() > 0.3 ? c.accent : c.accent2, transparent:true, opacity:0.5 }));
+            leaf.position.set((Math.random() - 0.5) * 10, (Math.random() - 0.5) * 8 + 2, (Math.random() - 0.5) * 10);
+            installationGroup.add(leaf);
+          }
+          break;
+        }
+        case 'coral': {
+          // 珊瑚礁
+          for (let i = 0; i < 15; i++) {
+            const coral = new THREE.Mesh(
+              Math.random() > 0.5 ? new THREE.ConeGeometry(0.5 + Math.random(), 3 + Math.random() * 4, 6) : new THREE.SphereGeometry(1 + Math.random(), 8, 8),
+              new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? c.accent : c.accent2, transparent:true, opacity:0.6 })
+            );
+            coral.position.set((Math.random() - 0.5) * 20, -13 + Math.random() * 3, (Math.random() - 0.5) * 15);
+            installationGroup.add(coral);
+          }
+          break;
+        }
+        case 'wood':
+        case 'leather': {
+          // 木雕/皮革工艺品旋转展示
+          const artifact = new THREE.Mesh(new THREE.DodecahedronGeometry(5, 0), new THREE.MeshStandardMaterial({ color: c.accent, roughness:0.8, metalness:0 }));
+          artifact.userData.isInstallation = true; artifact.userData.rotSpeed = 0.003;
+          installationGroup.add(artifact);
+          const stand = new THREE.Mesh(new THREE.CylinderGeometry(2, 3, 2, 8), new THREE.MeshStandardMaterial({ color: c.accent2, roughness:0.9 }));
+          stand.position.y = -10;
+          installationGroup.add(stand);
+          break;
+        }
+        case 'paper': {
+          // 千纸鹤群（简化为三角锥）
+          for (let i = 0; i < 20; i++) {
+            const crane = new THREE.Mesh(
+              new THREE.ConeGeometry(0.5, 1.5, 3),
+              new THREE.MeshBasicMaterial({ color: ['#f5deb3','#ffefd5','#ffe4c4','#ffdab9'][i % 4], transparent:true, opacity:0.7 })
+            );
+            crane.position.set((Math.random() - 0.5) * 25, (Math.random() - 0.5) * 15, (Math.random() - 0.5) * 20);
+            crane.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            crane.userData.floatPhase = Math.random() * Math.PI * 2; crane.userData.floatSpeed = 0.005;
+            installationGroup.add(crane);
+          }
+          break;
+        }
+        case 'medical': {
+          // DNA双螺旋
+          for (let i = 0; i < 40; i++) {
+            const t = i * 0.2;
+            const y = i * 0.7 - 14;
+            [[Math.cos(t) * 4, y, Math.sin(t) * 4], [Math.cos(t + Math.PI) * 4, y, Math.sin(t + Math.PI) * 4]].forEach((p, j) => {
+              const node = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: j === 0 ? c.accent : '#fff' }));
+              node.position.set(...p);
+              installationGroup.add(node);
+            });
+            if (i % 3 === 0) {
+              const bridge = new THREE.Mesh(new THREE.CylinderGeometry(0.05, 0.05, 8, 4), new THREE.MeshBasicMaterial({ color:'#aaa', transparent:true, opacity:0.3 }));
+              bridge.position.set(0, y, 0); bridge.rotation.z = Math.PI / 2; bridge.rotation.y = t;
+              installationGroup.add(bridge);
+            }
+          }
+          break;
+        }
+        case 'education': {
+          // 翻开的书本
+          const bookL = new THREE.Mesh(new THREE.BoxGeometry(5, 7, 0.3), new THREE.MeshStandardMaterial({ color:'#fff', roughness:0.8 }));
+          bookL.position.set(-2.6, -5, 0); bookL.rotation.y = 0.2;
+          const bookR = bookL.clone(); bookR.position.x = 2.6; bookR.rotation.y = -0.2;
+          const spine = new THREE.Mesh(new THREE.BoxGeometry(0.5, 7, 0.5), new THREE.MeshStandardMaterial({ color: c.accent, roughness:0.7 }));
+          spine.position.y = -5;
+          installationGroup.add(bookL, bookR, spine);
+          // 飞出的字母
+          for (let i = 0; i < 15; i++) {
+            const letter = new THREE.Mesh(new THREE.BoxGeometry(0.5, 0.5, 0.1), new THREE.MeshBasicMaterial({ color: c.accent }));
+            letter.position.set((Math.random() - 0.5) * 15, Math.random() * 10, (Math.random() - 0.5) * 10);
+            letter.userData.floatPhase = Math.random() * Math.PI * 2; letter.userData.floatSpeed = 0.008;
+            installationGroup.add(letter);
+          }
+          break;
+        }
+        case 'food': {
+          // 美食旋转展台
+          const plate = new THREE.Mesh(new THREE.CylinderGeometry(5, 5, 0.3, 32), new THREE.MeshStandardMaterial({ color:'#f0f0f0', roughness:0.3 }));
+          plate.position.y = -8;
+          plate.userData.isInstallation = true; plate.userData.rotSpeed = 0.005;
+          installationGroup.add(plate);
+          // 食物（彩色球体）
+          const foodColors = ['#ff8c00','#ff4500','#32cd32','#ffd700','#ff69b4'];
+          for (let i = 0; i < 5; i++) {
+            const food = new THREE.Mesh(new THREE.SphereGeometry(1 + Math.random(), 16, 16), new THREE.MeshBasicMaterial({ color: foodColors[i] }));
+            const a = (i / 5) * Math.PI * 2;
+            food.position.set(Math.cos(a) * 3, -7, Math.sin(a) * 3);
+            food.userData.isInstallation = true; food.userData.rotSpeed = 0.005;
+            installationGroup.add(food);
+          }
+          break;
+        }
+        case 'travel': {
+          const globe = new THREE.Mesh(new THREE.SphereGeometry(6, 32, 32), new THREE.MeshBasicMaterial({ color: c.accent, wireframe:true, transparent:true, opacity:0.4 }));
+          globe.userData.isInstallation = true; globe.userData.rotSpeed = 0.003;
+          installationGroup.add(globe);
+          for (let i = 0; i < 3; i++) {
+            const path = new THREE.Mesh(new THREE.TorusGeometry(7 + i, 0.05, 8, 100), new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.5 }));
+            path.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, 0);
+            path.userData.isInstallation = true; path.userData.rotSpeed = 0.005 + i * 0.002;
+            installationGroup.add(path);
+          }
+          break;
+        }
+        case 'wedding': {
+          // 婚戒 + 花瓣光
+          const ring1 = new THREE.Mesh(new THREE.TorusGeometry(4, 0.5, 16, 100), new THREE.MeshStandardMaterial({ color:'#ffd700', metalness:1, roughness:0 }));
+          ring1.position.set(-2, 0, 0); ring1.rotation.y = 0.3;
+          const ring2 = ring1.clone(); ring2.position.x = 2; ring2.rotation.y = -0.3;
+          ring1.userData.isInstallation = true; ring1.userData.rotSpeed = 0.003;
+          ring2.userData.isInstallation = true; ring2.userData.rotSpeed = 0.003;
+          installationGroup.add(ring1, ring2);
+          // 钻石
+          const diamond = new THREE.Mesh(new THREE.OctahedronGeometry(1, 0), new THREE.MeshStandardMaterial({ color:'#fff', metalness:0.8, roughness:0 }));
+          diamond.position.set(0, 5, 0); diamond.scale.y = 1.3;
+          diamond.userData.isInstallation = true; diamond.userData.rotSpeed = 0.01;
+          installationGroup.add(diamond);
+          break;
+        }
+        case 'cottagecore': {
+          // 小木屋
+          const cabin = new THREE.Group();
+          const walls = new THREE.Mesh(new THREE.BoxGeometry(6, 4, 5), new THREE.MeshStandardMaterial({ color:'#deb887', roughness:0.9 }));
+          walls.position.y = -10;
+          cabin.add(walls);
+          const roof = new THREE.Mesh(new THREE.ConeGeometry(5, 3, 4), new THREE.MeshStandardMaterial({ color:'#8b4513', roughness:0.8 }));
+          roof.position.y = -7; roof.rotation.y = Math.PI / 4;
+          cabin.add(roof);
+          // 小花
+          for (let i = 0; i < 8; i++) {
+            const flower = new THREE.Mesh(new THREE.SphereGeometry(0.3, 8, 8), new THREE.MeshBasicMaterial({ color: ['#ff69b4','#ffd700','#ff6347','#dda0dd'][i % 4] }));
+            flower.position.set((Math.random() - 0.5) * 12, -12, 4 + Math.random() * 3);
+            installationGroup.add(flower);
+          }
+          installationGroup.add(cabin);
+          break;
+        }
+        case 'lightacademia': {
+          // 阳光书桌 + 咖啡杯
+          const desk = new THREE.Mesh(new THREE.BoxGeometry(10, 0.3, 5), new THREE.MeshStandardMaterial({ color:'#deb887', roughness:0.7 }));
+          desk.position.y = -8;
+          installationGroup.add(desk);
+          // 书
+          for (let i = 0; i < 4; i++) {
+            const book = new THREE.Mesh(new THREE.BoxGeometry(1.5, 0.4, 2), new THREE.MeshBasicMaterial({ color: ['#8b4513','#006400','#00008b','#4b0082'][i] }));
+            book.position.set(-3 + i * 2, -7.6, 0);
+            installationGroup.add(book);
+          }
+          // 咖啡杯
+          const cup = new THREE.Mesh(new THREE.CylinderGeometry(0.5, 0.4, 1, 16), new THREE.MeshStandardMaterial({ color:'#f5f5f5', roughness:0.3 }));
+          cup.position.set(4, -7.3, 1);
+          installationGroup.add(cup);
+          break;
+        }
+        case 'sunny': {
+          // 笑脸太阳
+          const sunFace = new THREE.Mesh(new THREE.CircleGeometry(5, 32), new THREE.MeshBasicMaterial({ color: c.accent, side:THREE.DoubleSide }));
+          installationGroup.add(sunFace);
+          // 光线
+          for (let i = 0; i < 12; i++) {
+            const ray = new THREE.Mesh(new THREE.BoxGeometry(0.5, 3, 0.1), new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.6 }));
+            const a = (i / 12) * Math.PI * 2;
+            ray.position.set(Math.cos(a) * 7, Math.sin(a) * 7, 0);
+            ray.rotation.z = a;
+            installationGroup.add(ray);
+          }
+          installationGroup.userData.isInstallation = true; installationGroup.userData.rotSpeed = 0.002;
+          break;
+        }
+        case 'rainy':
+        case 'melancholy': {
+          // 雨伞
+          const umbrella = new THREE.Group();
+          const canopy = new THREE.Mesh(new THREE.SphereGeometry(5, 16, 8, 0, Math.PI * 2, 0, Math.PI / 2), new THREE.MeshBasicMaterial({ color: c.accent, transparent:true, opacity:0.6 }));
+          canopy.rotation.x = Math.PI;
+          umbrella.add(canopy);
+          const handle = new THREE.Mesh(new THREE.CylinderGeometry(0.1, 0.1, 8, 8), new THREE.MeshBasicMaterial({ color:'#555' }));
+          handle.position.y = 4;
+          umbrella.add(handle);
+          umbrella.position.y = 2;
+          umbrella.userData.isInstallation = true; umbrella.userData.rotSpeed = 0.003;
+          installationGroup.add(umbrella);
+          break;
+        }
+        case 'foggy': {
+          // 迷雾中的路灯剪影
+          for (let i = 0; i < 4; i++) {
+            const pole = new THREE.Mesh(new THREE.CylinderGeometry(0.15, 0.15, 12, 8), new THREE.MeshBasicMaterial({ color:'#333', transparent:true, opacity:0.4 }));
+            pole.position.set((i - 1.5) * 8, -9, -5);
+            installationGroup.add(pole);
+            const lampHead = new THREE.Mesh(new THREE.SphereGeometry(0.5, 8, 8), new THREE.MeshBasicMaterial({ color:'#fffacd', transparent:true, opacity:0.4 }));
+            lampHead.position.set((i - 1.5) * 8, -3, -5);
+            installationGroup.add(lampHead);
+          }
+          break;
+        }
+        case 'dawn':
+        case 'dusk': {
+          // 飞鸟剪影
+          for (let i = 0; i < 8; i++) {
+            const bird = new THREE.Group();
+            const wingL = new THREE.Mesh(new THREE.PlaneGeometry(1.5, 0.3), new THREE.MeshBasicMaterial({ color:'#222', side:THREE.DoubleSide }));
+            wingL.position.x = -0.8; wingL.rotation.z = 0.3;
+            const wingR = wingL.clone(); wingR.position.x = 0.8; wingR.rotation.z = -0.3;
+            bird.add(wingL, wingR);
+            bird.position.set((Math.random() - 0.5) * 30, 5 + Math.random() * 10, -20 - Math.random() * 10);
+            bird.scale.setScalar(0.5 + Math.random());
+            bird.userData.floatPhase = Math.random() * Math.PI * 2; bird.userData.floatSpeed = 0.005;
+            installationGroup.add(bird);
+          }
+          break;
+        }
+        case 'summer': {
+          // 椰树 + 海浪
+          const palmTrunk = new THREE.Mesh(new THREE.CylinderGeometry(0.3, 0.5, 10, 8), new THREE.MeshStandardMaterial({ color:'#8b6914', roughness:0.9 }));
+          palmTrunk.position.set(-5, -10, 0); palmTrunk.rotation.z = 0.15;
+          installationGroup.add(palmTrunk);
+          // 棕榈叶
+          for (let i = 0; i < 6; i++) {
+            const frond = new THREE.Mesh(new THREE.PlaneGeometry(5, 1), new THREE.MeshBasicMaterial({ color:'#228b22', transparent:true, opacity:0.7, side:THREE.DoubleSide }));
+            frond.position.set(-5, -4, 0);
+            frond.rotation.z = (i / 6) * Math.PI * 2;
+            frond.rotation.x = -0.5;
+            installationGroup.add(frond);
+          }
+          break;
+        }
+        default: {
+          // 默认：旋转多面体 + 光环
+          const defGeo = new THREE.IcosahedronGeometry(6, 1);
+          const defMat = new THREE.MeshStandardMaterial({
+            color: c.accent, metalness:0.5, roughness:0.3, wireframe:true
+          });
+          const defMesh = new THREE.Mesh(defGeo, defMat);
+          defMesh.userData.isInstallation = true;
+          defMesh.userData.rotSpeed = 0.005;
+          installationGroup.add(defMesh);
+          for (let i = 0; i < 3; i++) {
+            const ring = new THREE.Mesh(
+              new THREE.TorusGeometry(8 + i * 2, 0.1, 16, 100),
+              new THREE.MeshBasicMaterial({ color: i % 2 === 0 ? c.accent : c.accent2, transparent:true, opacity:0.4 })
+            );
+            ring.rotation.x = Math.PI / 2 + i * 0.2;
+            ring.userData.isInstallation = true;
+            ring.userData.rotSpeed = 0.008 * (i + 1);
+            installationGroup.add(ring);
+          }
+        }
+      }
+
+      // ====== 把装置中第一个核心物体的材质替换为 shader ======
+      try {
+        const shaderMat = getStyleShaderMaterial(style.id, c.accent, c.accent2);
+        if (shaderMat && installationGroup.children.length > 0) {
+          // 找到最适合替换的核心物体（第一个有 isInstallation 标记的 Mesh）
+          let target = null;
+          for (const child of installationGroup.children) {
+            if (child.isMesh && child.userData.isInstallation) {
+              target = child; break;
+            }
+            // Group 的情况：找其中第一个 Mesh
+            if (child.isGroup && child.userData.isInstallation) {
+              child.traverse(sub => { if (!target && sub.isMesh) target = sub; });
+              if (target) break;
+            }
+          }
+          // 如果没找到带标记的，就找第一个足够大的 Mesh
+          if (!target) {
+            for (const child of installationGroup.children) {
+              if (child.isMesh && child.geometry) {
+                child.geometry.computeBoundingSphere();
+                if (child.geometry.boundingSphere && child.geometry.boundingSphere.radius > 2) {
+                  target = child; break;
+                }
+              }
+            }
+          }
+          if (target) {
+            // 保存旧材质以便 dispose
+            if (target.material && target.material.dispose) target.material.dispose();
+            target.material = shaderMat;
+            target.userData.isShaderCore = true;
+          }
+        }
+      } catch(e) { /* shader 加载失败时静默 */ }
+    }
+
+    // ==================== 粒子系统 ====================
+    function createParticles(style) {
+      while (particleGroup.children.length > 0) {
+        const child = particleGroup.children[0];
+        particleGroup.remove(child);
+        if (child.geometry) child.geometry.dispose();
+        if (child.material) child.material.dispose();
+      }
+
+      const c = style.colors;
+      const accent = new THREE.Color(c.accent);
+      const accent2 = new THREE.Color(c.accent2);
+
+      // 基础粒子场
+      const baseCount = 800;
+      const baseGeo = new THREE.BufferGeometry();
+      const basePos = new Float32Array(baseCount * 3);
+      const baseCol = new Float32Array(baseCount * 3);
+
+      for (let i = 0; i < baseCount; i++) {
+        const theta = Math.random() * Math.PI * 2;
+        const phi = Math.acos(Math.random() * 2 - 1);
+        const r = 30 + Math.random() * 40;
+        basePos[i * 3] = r * Math.sin(phi) * Math.cos(theta);
+        basePos[i * 3 + 1] = r * Math.sin(phi) * Math.sin(theta) - 5;
+        basePos[i * 3 + 2] = r * Math.cos(phi);
+
+        const mix = Math.random();
+        const color = accent.clone().lerp(accent2, mix);
+        baseCol[i * 3] = color.r;
+        baseCol[i * 3 + 1] = color.g;
+        baseCol[i * 3 + 2] = color.b;
+      }
+
+      baseGeo.setAttribute('position', new THREE.BufferAttribute(basePos, 3));
+      baseGeo.setAttribute('color', new THREE.BufferAttribute(baseCol, 3));
+
+      const basePoints = new THREE.Points(baseGeo, new THREE.PointsMaterial({
+        size: 0.25,
+        vertexColors: true,
+        transparent: true,
+        opacity: 0.8,
+        blending: THREE.AdditiveBlending,
+        depthWrite: false,
+      }));
+      basePoints.userData.isBaseParticle = true;
+      particleGroup.add(basePoints);
+
+      // 风格特殊粒子
+      switch (style.id) {
+        case 'japanese':
+          // 樱花花瓣
+          for (let i = 0; i < 100; i++) {
+            const petal = new THREE.Mesh(
+              new THREE.CircleGeometry(0.3 + Math.random() * 0.3, 5),
+              new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.3 ? c.accent : c.accent2,
+                transparent: true,
+                opacity: 0.7,
+                side: THREE.DoubleSide,
+              })
+            );
+            petal.position.set(
+              (Math.random() - 0.5) * 40,
+              Math.random() * 30,
+              (Math.random() - 0.5) * 40
+            );
+            petal.rotation.set(
+              Math.random() * Math.PI,
+              Math.random() * Math.PI,
+              Math.random() * Math.PI
+            );
+            petal.userData.fallSpeed = 0.02 + Math.random() * 0.05;
+            petal.userData.swaySpeed = 0.01 + Math.random() * 0.02;
+            petal.userData.swayPhase = Math.random() * Math.PI * 2;
+            petal.userData.isPetal = true;
+            particleGroup.add(petal);
+          }
+          break;
+
+        case 'winter':
+          // 雪花
+          for (let i = 0; i < 150; i++) {
+            const snow = new THREE.Mesh(
+              new THREE.CircleGeometry(0.1 + Math.random() * 0.2, 6),
+              new THREE.MeshBasicMaterial({
+                color: '#ffffff',
+                transparent: true,
+                opacity: 0.8,
+                side: THREE.DoubleSide,
+              })
+            );
+            snow.position.set(
+              (Math.random() - 0.5) * 50,
+              Math.random() * 40 - 10,
+              (Math.random() - 0.5) * 50
+            );
+            snow.userData.fallSpeed = 0.03 + Math.random() * 0.05;
+            snow.userData.swaySpeed = 0.005 + Math.random() * 0.01;
+            snow.userData.swayPhase = Math.random() * Math.PI * 2;
+            snow.userData.isSnow = true;
+            particleGroup.add(snow);
+          }
+          break;
+
+        case 'matrix':
+          // 代码雨
+          for (let i = 0; i < 100; i++) {
+            const codeRain = new THREE.Mesh(
+              new THREE.PlaneGeometry(0.3, 3 + Math.random() * 5),
+              new THREE.MeshBasicMaterial({
+                color: c.accent,
+                transparent: true,
+                opacity: 0.4 + Math.random() * 0.4,
+                side: THREE.DoubleSide,
+              })
+            );
+            codeRain.position.set(
+              (Math.random() - 0.5) * 60,
+              Math.random() * 40 - 10,
+              (Math.random() - 0.5) * 40
+            );
+            codeRain.userData.fallSpeed = 0.1 + Math.random() * 0.2;
+            codeRain.userData.isCodeRain = true;
+            particleGroup.add(codeRain);
+          }
+          break;
+
+        case 'romantic':
+          // 爱心
+          for (let i = 0; i < 30; i++) {
+            const heartShape = new THREE.Shape();
+            const x = 0, y = 0;
+            heartShape.moveTo(x, y + 0.5);
+            heartShape.bezierCurveTo(x + 0.5, y + 0.5, x + 0.4, y, x, y);
+            heartShape.bezierCurveTo(x - 0.4, y, x - 0.5, y + 0.5, x, y + 0.5);
+
+            const heart = new THREE.Mesh(
+              new THREE.ShapeGeometry(heartShape),
+              new THREE.MeshBasicMaterial({
+                color: c.accent,
+                transparent: true,
+                opacity: 0.6,
+                side: THREE.DoubleSide,
+              })
+            );
+            heart.scale.set(0.5 + Math.random() * 0.5, 0.5 + Math.random() * 0.5, 1);
+            heart.position.set(
+              (Math.random() - 0.5) * 30,
+              Math.random() * 25 - 5,
+              (Math.random() - 0.5) * 30
+            );
+            heart.rotation.z = Math.PI;
+            heart.userData.floatSpeed = 0.01 + Math.random() * 0.02;
+            heart.userData.floatPhase = Math.random() * Math.PI * 2;
+            heart.userData.isHeart = true;
+            particleGroup.add(heart);
+          }
+          break;
+
+        case 'forest':
+          // 萤火虫
+          for (let i = 0; i < 60; i++) {
+            const firefly = new THREE.Mesh(
+              new THREE.SphereGeometry(0.1, 8, 8),
+              new THREE.MeshBasicMaterial({ color: c.accent2 })
+            );
+            firefly.position.set(
+              (Math.random() - 0.5) * 40,
+              Math.random() * 20 - 10,
+              (Math.random() - 0.5) * 40
+            );
+            firefly.userData.floatSpeed = 0.005 + Math.random() * 0.01;
+            firefly.userData.floatPhase = Math.random() * Math.PI * 2;
+            firefly.userData.blinkPhase = Math.random() * Math.PI * 2;
+            firefly.userData.isFirefly = true;
+            particleGroup.add(firefly);
+          }
+          break;
+
+        case 'autumn':
+          // 落叶
+          for (let i = 0; i < 80; i++) {
+            const leaf = new THREE.Mesh(
+              new THREE.CircleGeometry(0.3 + Math.random() * 0.4, 5),
+              new THREE.MeshBasicMaterial({
+                color: ['#ff8c00','#ff4500','#8b4513','#ffd700','#b22222'][Math.floor(Math.random() * 5)],
+                transparent:true, opacity:0.8, side:THREE.DoubleSide
+              })
+            );
+            leaf.position.set((Math.random() - 0.5) * 40, Math.random() * 30, (Math.random() - 0.5) * 40);
+            leaf.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            leaf.userData.fallSpeed = 0.02 + Math.random() * 0.04;
+            leaf.userData.swaySpeed = 0.015 + Math.random() * 0.02;
+            leaf.userData.swayPhase = Math.random() * Math.PI * 2;
+            leaf.userData.isPetal = true;
+            particleGroup.add(leaf);
+          }
+          break;
+
+        case 'spring':
+          // 花瓣和蝴蝶
+          for (let i = 0; i < 60; i++) {
+            const petal = new THREE.Mesh(
+              new THREE.CircleGeometry(0.2 + Math.random() * 0.3, 5),
+              new THREE.MeshBasicMaterial({
+                color: ['#ffb7c5','#98fb98','#fffacd','#dda0dd'][Math.floor(Math.random() * 4)],
+                transparent:true, opacity:0.7, side:THREE.DoubleSide
+              })
+            );
+            petal.position.set((Math.random() - 0.5) * 40, Math.random() * 25, (Math.random() - 0.5) * 40);
+            petal.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            petal.userData.fallSpeed = 0.015 + Math.random() * 0.03;
+            petal.userData.swaySpeed = 0.02 + Math.random() * 0.02;
+            petal.userData.swayPhase = Math.random() * Math.PI * 2;
+            petal.userData.isPetal = true;
+            particleGroup.add(petal);
+          }
+          break;
+
+        case 'chinese':
+          // 金色云纹粒子
+          for (let i = 0; i < 40; i++) {
+            const cloudlet = new THREE.Mesh(
+              new THREE.SphereGeometry(0.3, 8, 8),
+              new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.5 })
+            );
+            cloudlet.position.set((Math.random() - 0.5) * 30, Math.random() * 20, (Math.random() - 0.5) * 30);
+            cloudlet.scale.set(1 + Math.random(), 0.5, 1 + Math.random());
+            cloudlet.userData.floatSpeed = 0.003 + Math.random() * 0.005;
+            cloudlet.userData.floatPhase = Math.random() * Math.PI * 2;
+            cloudlet.userData.isHeart = true;
+            particleGroup.add(cloudlet);
+          }
+          break;
+
+        case 'gothic':
+          // 蝙蝠剪影
+          for (let i = 0; i < 15; i++) {
+            const bat = new THREE.Mesh(
+              new THREE.ConeGeometry(0.4, 0.2, 3),
+              new THREE.MeshBasicMaterial({ color:'#1a0008', transparent:true, opacity:0.8 })
+            );
+            bat.position.set((Math.random() - 0.5) * 40, Math.random() * 15 + 5, (Math.random() - 0.5) * 30);
+            bat.rotation.x = Math.PI;
+            bat.userData.floatSpeed = 0.02 + Math.random() * 0.03;
+            bat.userData.floatPhase = Math.random() * Math.PI * 2;
+            bat.userData.swaySpeed = 0.03;
+            bat.userData.swayPhase = Math.random() * Math.PI * 2;
+            bat.userData.isPetal = true;
+            particleGroup.add(bat);
+          }
+          break;
+
+        case 'ocean':
+        case 'coral':
+        case 'mediterranean':
+          // 气泡
+          for (let i = 0; i < 80; i++) {
+            const bubble = new THREE.Mesh(
+              new THREE.SphereGeometry(0.1 + Math.random() * 0.3, 8, 8),
+              new THREE.MeshBasicMaterial({ color: c.accent2, transparent:true, opacity:0.4 })
+            );
+            bubble.position.set((Math.random() - 0.5) * 40, Math.random() * 30 - 15, (Math.random() - 0.5) * 40);
+            bubble.userData.riseSpeed = 0.02 + Math.random() * 0.03;
+            bubble.userData.swaySpeed = 0.01;
+            bubble.userData.swayPhase = Math.random() * Math.PI * 2;
+            bubble.userData.isBubble = true;
+            particleGroup.add(bubble);
+          }
+          break;
+
+        case 'rainy':
+        case 'melancholy':
+          // 雨滴
+          for (let i = 0; i < 200; i++) {
+            const drop = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.02, 0.02, 0.5 + Math.random() * 0.5, 4),
+              new THREE.MeshBasicMaterial({ color: c.accent, transparent:true, opacity:0.5 })
+            );
+            drop.position.set((Math.random() - 0.5) * 50, Math.random() * 40 - 10, (Math.random() - 0.5) * 50);
+            drop.userData.fallSpeed = 0.3 + Math.random() * 0.2;
+            drop.userData.isCodeRain = true;
+            particleGroup.add(drop);
+          }
+          break;
+
+        case 'stormy':
+          // 暴风雨
+          for (let i = 0; i < 250; i++) {
+            const drop = new THREE.Mesh(
+              new THREE.CylinderGeometry(0.02, 0.02, 0.8, 4),
+              new THREE.MeshBasicMaterial({ color:'#a0a0a0', transparent:true, opacity:0.4 })
+            );
+            drop.position.set((Math.random() - 0.5) * 60, Math.random() * 40 - 10, (Math.random() - 0.5) * 60);
+            drop.rotation.z = 0.3;
+            drop.userData.fallSpeed = 0.4 + Math.random() * 0.3;
+            drop.userData.isCodeRain = true;
+            particleGroup.add(drop);
+          }
+          break;
+
+        case 'kawaii':
+          // 星星和音符
+          for (let i = 0; i < 40; i++) {
+            const star = new THREE.Mesh(
+              new THREE.CircleGeometry(0.3, i % 3 === 0 ? 5 : 4),
+              new THREE.MeshBasicMaterial({
+                color: ['#ffb7c5','#b19cd9','#fffacd','#98fb98'][Math.floor(Math.random() * 4)],
+                transparent:true, opacity:0.7, side:THREE.DoubleSide
+              })
+            );
+            star.position.set((Math.random() - 0.5) * 30, Math.random() * 20, (Math.random() - 0.5) * 30);
+            star.userData.floatSpeed = 0.01 + Math.random() * 0.01;
+            star.userData.floatPhase = Math.random() * Math.PI * 2;
+            star.userData.isHeart = true;
+            particleGroup.add(star);
+          }
+          break;
+
+        case 'desert':
+          // 沙粒
+          {
+            const sandGeo = new THREE.BufferGeometry();
+            const sandCount = 500;
+            const sandPos = new Float32Array(sandCount * 3);
+            for (let i = 0; i < sandCount; i++) {
+              sandPos[i * 3] = (Math.random() - 0.5) * 60;
+              sandPos[i * 3 + 1] = Math.random() * 10 - 5;
+              sandPos[i * 3 + 2] = (Math.random() - 0.5) * 60;
+            }
+            sandGeo.setAttribute('position', new THREE.BufferAttribute(sandPos, 3));
+            const sand = new THREE.Points(sandGeo, new THREE.PointsMaterial({
+              color: c.accent, size:0.1, transparent:true, opacity:0.6
+            }));
+            sand.userData.isSand = true;
+            particleGroup.add(sand);
+          }
+          break;
+
+        case 'music':
+        case 'spotify':
+          // 音符
+          for (let i = 0; i < 30; i++) {
+            const note = new THREE.Mesh(
+              new THREE.SphereGeometry(0.2, 8, 8),
+              new THREE.MeshBasicMaterial({ color: Math.random() > 0.5 ? c.accent : c.accent2 })
+            );
+            note.position.set((Math.random() - 0.5) * 30, Math.random() * 20 - 5, (Math.random() - 0.5) * 30);
+            note.userData.floatSpeed = 0.02 + Math.random() * 0.02;
+            note.userData.floatPhase = Math.random() * Math.PI * 2;
+            note.userData.isHeart = true;
+            particleGroup.add(note);
+          }
+          break;
+
+        case 'wedding':
+        case 'dawn':
+          // 金色花瓣
+          for (let i = 0; i < 50; i++) {
+            const petal = new THREE.Mesh(
+              new THREE.CircleGeometry(0.2 + Math.random() * 0.3, 5),
+              new THREE.MeshBasicMaterial({
+                color: Math.random() > 0.5 ? c.accent : c.accent2,
+                transparent:true, opacity:0.6, side:THREE.DoubleSide
+              })
+            );
+            petal.position.set((Math.random() - 0.5) * 35, Math.random() * 25, (Math.random() - 0.5) * 35);
+            petal.rotation.set(Math.random() * Math.PI, Math.random() * Math.PI, Math.random() * Math.PI);
+            petal.userData.fallSpeed = 0.015 + Math.random() * 0.03;
+            petal.userData.swaySpeed = 0.01 + Math.random() * 0.015;
+            petal.userData.swayPhase = Math.random() * Math.PI * 2;
+            petal.userData.isPetal = true;
+            particleGroup.add(petal);
+          }
+          break;
+
+        case 'terminal':
+          // 终端代码雨（绿色更密）
+          for (let i = 0; i < 120; i++) {
+            const cr = new THREE.Mesh(
+              new THREE.PlaneGeometry(0.2, 2 + Math.random() * 3),
+              new THREE.MeshBasicMaterial({ color: c.accent, transparent:true, opacity:0.3 + Math.random() * 0.4, side:THREE.DoubleSide })
+            );
+            cr.position.set((Math.random() - 0.5) * 60, Math.random() * 40 - 10, (Math.random() - 0.5) * 40);
+            cr.userData.fallSpeed = 0.08 + Math.random() * 0.15;
+            cr.userData.isCodeRain = true;
+            particleGroup.add(cr);
+          }
+          break;
+
+        case 'foggy':
+          // 雾气粒子
+          {
+            const fogGeo = new THREE.BufferGeometry();
+            const fogCount = 400;
+            const fogPos = new Float32Array(fogCount * 3);
+            for (let i = 0; i < fogCount; i++) {
+              fogPos[i * 3] = (Math.random() - 0.5) * 60;
+              fogPos[i * 3 + 1] = Math.random() * 20 - 10;
+              fogPos[i * 3 + 2] = (Math.random() - 0.5) * 60;
+            }
+            fogGeo.setAttribute('position', new THREE.BufferAttribute(fogPos, 3));
+            const fog = new THREE.Points(fogGeo, new THREE.PointsMaterial({
+              color:'#c0c0c0', size:1.5, transparent:true, opacity:0.2, blending:THREE.AdditiveBlending
+            }));
+            fog.userData.isFog = true;
+            particleGroup.add(fog);
+          }
+          break;
+
+        case 'midnight':
+          // 星星和流星
+          for (let i = 0; i < 200; i++) {
+            const star = new THREE.Mesh(
+              new THREE.SphereGeometry(0.05 + Math.random() * 0.1, 4, 4),
+              new THREE.MeshBasicMaterial({ color:'#ffffff', transparent:true, opacity:0.5 + Math.random() * 0.5 })
+            );
+            star.position.set((Math.random() - 0.5) * 80, Math.random() * 30 + 5, (Math.random() - 0.5) * 80);
+            star.userData.blinkPhase = Math.random() * Math.PI * 2;
+            star.userData.isFirefly = true;
+            star.userData.floatPhase = Math.random() * Math.PI * 2;
+            star.userData.floatSpeed = 0;
+            particleGroup.add(star);
+          }
+          break;
+
+        case 'weirdcore':
+        case 'glitch':
+          // 数字噪点
+          for (let i = 0; i < 100; i++) {
+            const noise = new THREE.Mesh(
+              new THREE.BoxGeometry(0.2 + Math.random() * 0.5, 0.2 + Math.random() * 0.5, 0.1),
+              new THREE.MeshBasicMaterial({
+                color: ['#ff0000','#00ff00','#0000ff','#ff00ff','#00ffff'][Math.floor(Math.random() * 5)],
+                transparent:true, opacity:0.5
+              })
+            );
+            noise.position.set((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30);
+            noise.userData.glitchTimer = Math.random() * 100;
+            noise.userData.isNoise = true;
+            particleGroup.add(noise);
+          }
+          break;
+      }
+    }
+
+    // ==================== 应用风格 ====================
+    // 根据accent色生成有色彩倾向的深色背景
+    function generateStyledBg(accentHex, accent2Hex) {
+      const a = new THREE.Color(accentHex);
+      const a2 = new THREE.Color(accent2Hex);
+      // 混合两个accent色，然后大幅降低亮度但保留色相
+      const mixed = a.clone().lerp(a2, 0.3);
+      // 保留色相，设置较低但可见的亮度
+      const hsl = {};
+      mixed.getHSL(hsl);
+      // 饱和度保持中等，亮度设为 0.06~0.10（比纯黑亮得多，有明显色彩）
+      mixed.setHSL(hsl.h, Math.min(hsl.s * 0.8, 0.6), 0.07 + hsl.s * 0.03);
+      return mixed;
+    }
+
+    function applyStyle(style, instant = false) {
+      currentStyle = style;
+      const c = style.colors;
+
+      // 更新CSS变量
+      document.documentElement.style.setProperty('--accent', c.accent);
+      document.documentElement.style.setProperty('--accent2', c.accent2);
+
+      // 生成有风格特色的背景色（不再用写死的近黑色）
+      const targetBg = generateStyledBg(c.accent, c.accent2);
+      const bgHex = '#' + targetBg.getHexString();
+      document.documentElement.style.setProperty('--bg', bgHex);
+
+      if (instant) {
+        scene.background.copy(targetBg);
+      } else {
+        scene.userData.targetBg = targetBg;
+      }
+
+      // 更新Bloom强度（降低以保持装置清晰）
+      const bloomIntensity = { SSR: 1.4, SR: 1, R: 0.7, N: 0.5 };
+      bloomPass.strength = bloomIntensity[style.rarity] || 0.8;
+
+      // 创建场景元素
+      createGround(style);
+      createEnvironment(style);
+      createInstallation(style);
+      createParticles(style);
+
+      // 更新当前风格显示
+      const styleNameEl = document.getElementById('current-style');
+      styleNameEl.textContent = `${style.icon} ${style.nameCN} · ${style.name}`;
+      styleNameEl.classList.add('show');
+    }
+
+    // ==================== 相机运镜系统 ====================
+    const camState = {
+      mode: 'idle',          // idle | pullZoom | reveal | orbit | returning
+      time: 0,
+      orbitAngle: 0,
+      targetPos: new THREE.Vector3(0, 8, 35),
+      targetLook: new THREE.Vector3(0, 0, 0),
+    };
+
+    const CAM_IDLE = new THREE.Vector3(0, 8, 35);
+    const CAM_ZOOM = new THREE.Vector3(0, 5, 20);
+    const CAM_ORBIT_DIST = 40;
+    const CAM_ORBIT_HEIGHT = 10;
+
+    function updateCamera(t, delta) {
+      const speed = 0.03;
+
+      switch (camState.mode) {
+        case 'pullZoom':
+          // 推近
+          camera.position.lerp(CAM_ZOOM, speed * 2);
+          camState.time += delta;
+          if (camState.time > 0.8) {
+            camState.mode = 'reveal';
+            camState.time = 0;
+          }
+          break;
+        case 'reveal':
+          // 保持
+          camState.time += delta;
+          if (camState.time > 1.5) {
+            camState.mode = 'orbit';
+            camState.time = 0;
+            camState.orbitAngle = Math.atan2(camera.position.x, camera.position.z);
+          }
+          break;
+        case 'orbit':
+          // 环绕
+          camState.orbitAngle += delta * 0.15;
+          const ox = Math.sin(camState.orbitAngle) * CAM_ORBIT_DIST;
+          const oz = Math.cos(camState.orbitAngle) * CAM_ORBIT_DIST;
+          const target = new THREE.Vector3(ox, CAM_ORBIT_HEIGHT, oz);
+          camera.position.lerp(target, speed);
+          camera.lookAt(0, 0, 0);
+          break;
+        case 'returning':
+          // 回到初始
+          camera.position.lerp(CAM_IDLE, speed * 2);
+          camera.lookAt(0, 0, 0);
+          if (camera.position.distanceTo(CAM_IDLE) < 0.5) {
+            camState.mode = 'idle';
+          }
+          break;
+        default:
+          // idle - 微微浮动
+          camera.position.y = 8 + Math.sin(t * 0.3) * 0.5;
+          camera.lookAt(0, 0, 0);
+      }
+    }
+
+    function startPullCamera() {
+      camState.mode = 'pullZoom';
+      camState.time = 0;
+    }
+
+    function startReturnCamera() {
+      camState.mode = 'returning';
+      camState.time = 0;
+    }
+
+    // ==================== 过渡动画系统 ====================
+    let transitionState = 'none'; // none | dissolve | build
+    let transitionProgress = 0;
+
+    function startTransition() {
+      transitionState = 'dissolve';
+      transitionProgress = 0;
+      // 缩小当前所有装置
+      installationGroup.children.forEach(child => {
+        child.userData.origScale = child.scale.clone();
+      });
+      particleGroup.children.forEach(child => {
+        child.userData.origScale = child.scale.clone();
+      });
+    }
+
+    function updateTransition(delta) {
+      if (transitionState === 'none') return;
+
+      transitionProgress += delta;
+
+      if (transitionState === 'dissolve') {
+        // 旧元素收缩消散（0-0.5s）
+        const t = Math.min(transitionProgress / 0.4, 1);
+        installationGroup.children.forEach(child => {
+          if (child.userData.origScale) {
+            const s = 1 - t;
+            child.scale.set(
+              child.userData.origScale.x * s,
+              child.userData.origScale.y * s,
+              child.userData.origScale.z * s
+            );
+            if (child.material) child.material.opacity = Math.max(0, (child.material.opacity || 1) * s);
+          }
+        });
+        if (transitionProgress > 0.4) {
+          transitionState = 'build';
+          transitionProgress = 0;
+        }
+      } else if (transitionState === 'build') {
+        // 新元素从小到大展开（0-0.6s）
+        const t = Math.min(transitionProgress / 0.6, 1);
+        const eased = 1 - Math.pow(1 - t, 3); // ease-out cubic
+        installationGroup.children.forEach(child => {
+          child.scale.setScalar(eased);
+        });
+        if (transitionProgress > 0.6) {
+          transitionState = 'none';
+          // 恢复正常scale
+          installationGroup.children.forEach(child => {
+            child.scale.set(1, 1, 1);
+            delete child.userData.origScale;
+          });
+        }
+      }
+    }
+
+    // ==================== 动画循环 ====================
+    const clock = new THREE.Clock();
+
+    function animate() {
+      requestAnimationFrame(animate);
+      const t = clock.getElapsedTime();
+      const delta = clock.getDelta();
+
+      // 相机运镜
+      updateCamera(t, delta);
+
+      // 过渡动画
+      updateTransition(delta);
+
+      // Shader uniform 更新
+      updateShaderTime(installationGroup, t);
+
+      // 背景过渡
+      if (scene.userData.targetBg) {
+        scene.background.lerp(scene.userData.targetBg, 0.03);
+      }
+
+      // 粒子动画
+      particleGroup.children.forEach(child => {
+        if (child.userData.isBaseParticle) {
+          child.rotation.y = t * 0.02;
+        }
+        if (child.userData.isPetal || child.userData.isSnow) {
+          child.position.y -= child.userData.fallSpeed;
+          // 更自然的摇摆（多频正弦叠加）
+          const sw = child.userData.swaySpeed;
+          const sp = child.userData.swayPhase;
+          child.position.x += Math.sin(t * 0.8 + sp) * sw + Math.sin(t * 1.3 + sp * 2) * sw * 0.3;
+          child.position.z += Math.cos(t * 0.6 + sp * 1.5) * sw * 0.5;
+          child.rotation.x += 0.008 + Math.sin(t + sp) * 0.005;
+          child.rotation.y += 0.012;
+          child.rotation.z += Math.cos(t * 0.5 + sp) * 0.003;
+          if (child.position.y < -15) child.position.y = 25;
+        }
+        if (child.userData.isCodeRain) {
+          child.position.y -= child.userData.fallSpeed;
+          if (child.position.y < -15) child.position.y = 30;
+        }
+        if (child.userData.isHeart) {
+          child.position.y += Math.sin(t * 2 + child.userData.floatPhase) * 0.02;
+          child.position.x += Math.cos(t * 0.8 + child.userData.floatPhase) * 0.005;
+        }
+        if (child.userData.isFirefly) {
+          child.position.y += Math.sin(t + child.userData.floatPhase) * 0.01;
+          child.position.x += Math.cos(t * 0.5 + child.userData.floatPhase) * 0.01;
+          child.material.opacity = 0.5 + Math.sin(t * 3 + child.userData.blinkPhase) * 0.5;
+        }
+        if (child.userData.isBubble) {
+          child.position.y += child.userData.riseSpeed;
+          child.position.x += Math.sin(t + child.userData.swayPhase) * child.userData.swaySpeed;
+          if (child.position.y > 20) child.position.y = -15;
+        }
+        if (child.userData.isNoise) {
+          child.userData.glitchTimer += delta;
+          if (Math.random() < 0.03) {
+            child.position.set((Math.random() - 0.5) * 40, (Math.random() - 0.5) * 30, (Math.random() - 0.5) * 30);
+            child.material.opacity = Math.random() * 0.5;
+          }
+        }
+        if (child.userData.isSand) {
+          child.rotation.y = t * 0.01;
+          const sandPos = child.geometry.attributes.position.array;
+          for (let i = 0; i < sandPos.length; i += 3) {
+            sandPos[i] += Math.sin(t + i) * 0.01;
+            sandPos[i + 1] += 0.005;
+            if (sandPos[i + 1] > 5) sandPos[i + 1] = -5;
+          }
+          child.geometry.attributes.position.needsUpdate = true;
+        }
+        if (child.userData.isFog) {
+          child.rotation.y = t * 0.005;
+        }
+      });
+
+      // 装置动画（带缓动）
+      installationGroup.children.forEach(child => {
+        if (child.userData.rotSpeed) {
+          // 呼吸式旋转速度（加减速）
+          const breathFactor = 0.8 + Ease.breathe(t, 0.5) * 0.4;
+          const speed = child.userData.rotSpeed * breathFactor;
+          if (child.userData.rotAxis === 'x') child.rotation.x += speed;
+          else if (child.userData.rotAxis === 'z') child.rotation.z += speed;
+          else child.rotation.y += speed;
+        }
+        if (child.userData.isWave && child.geometry) {
+          const pos = child.geometry.attributes.position;
+          for (let i = 0; i < pos.count; i++) {
+            const x = pos.getX(i);
+            const z = Math.sin(x * 0.1 + t + child.userData.wavePhase) * 2;
+            pos.setZ(i, z);
+          }
+          pos.needsUpdate = true;
+        }
+        if (child.userData.floatPhase !== undefined && child.userData.floatSpeed) {
+          // 柔和弹性浮动
+          const phase = child.userData.floatPhase;
+          const floatY = Math.sin(t * 0.8 + phase) * 1.2 + Math.sin(t * 1.3 + phase * 2) * 0.4;
+          const baseY = child.userData.baseY !== undefined ? child.userData.baseY : (child.userData._origY ?? child.position.y);
+          if (child.userData._origY === undefined) child.userData._origY = child.position.y;
+          child.position.y = baseY + floatY;
+          // 轻微摇摆
+          child.rotation.z = Math.sin(t * 0.5 + phase) * 0.05;
+        }
+        if (child.userData.isBounce) {
+          // 果冻弹跳
+          const bounce = Ease.breathe(t * 2 + child.userData.floatPhase, 1);
+          child.position.y += Math.sin(t * 2 + child.userData.floatPhase) * 0.03;
+          child.scale.x = 1 + Math.sin(t * 2.5 + child.userData.floatPhase) * 0.08;
+          child.scale.y = 1 - Math.sin(t * 2.5 + child.userData.floatPhase) * 0.06;
+          child.scale.z = 1 + Math.sin(t * 2.5 + child.userData.floatPhase + 1) * 0.06;
+        }
+        if (child.userData.isGlitch) {
+          child.children.forEach((gc, i) => {
+            gc.position.x = (i - 1) * 0.5 + Math.sin(t * 10 + i) * (Math.random() > 0.95 ? 2 : 0);
+            gc.position.y = Math.sin(t * 8 + i * 2) * (Math.random() > 0.95 ? 1 : 0);
+          });
+          child.rotation.y = t * 0.2;
+        }
+        if (child.userData.isData && child.geometry) {
+          const pos = child.geometry.attributes.position.array;
+          for (let i = 0; i < pos.length; i += 3) {
+            pos[i + 1] += 0.02;
+            if (pos[i + 1] > 6) pos[i + 1] = -6;
+          }
+          child.geometry.attributes.position.needsUpdate = true;
+        }
+        if (child.userData.isSmoke && child.geometry) {
+          const pos = child.geometry.attributes.position.array;
+          for (let i = 0; i < pos.length; i += 3) {
+            pos[i + 1] += 0.01;
+            pos[i] += (Math.random() - 0.5) * 0.02;
+            if (pos[i + 1] > 15) { pos[i + 1] = -2; pos[i] = (Math.random() - 0.5) * 3; }
+          }
+          child.geometry.attributes.position.needsUpdate = true;
+        }
+        if (child.userData.isBar) {
+          // 音波律动（多频叠加）
+          const p = child.userData.barPhase;
+          const wave = Math.abs(Math.sin(t * 3 + p)) * 0.4
+                     + Math.abs(Math.sin(t * 5.3 + p * 1.7)) * 0.3
+                     + Math.abs(Math.sin(t * 7.1 + p * 0.5)) * 0.2;
+          const newH = child.userData.baseHeight * (0.15 + wave * 0.85);
+          child.scale.y = newH / child.userData.baseHeight;
+        }
+        if (child.userData.isJellyfish) {
+          // 有机水母运动
+          const jPhase = child.userData.floatPhase;
+          child.position.y += Math.sin(t * 0.4 + jPhase) * 0.015;
+          child.position.x += Math.cos(t * 0.2 + jPhase) * 0.008;
+          child.position.z += Math.sin(t * 0.15 + jPhase * 2) * 0.005;
+          // 水母伞盖脉冲
+          const pulse = 1 + Math.sin(t * 2 + jPhase) * 0.15;
+          if (child.children[0]) {
+            child.children[0].scale.set(pulse, 0.8 + (1 - pulse) * 0.5, pulse);
+          }
+          child.children.forEach(tent => {
+            if (tent.userData.tentaclePhase !== undefined) {
+              tent.rotation.x = Math.sin(t * 1.5 + tent.userData.tentaclePhase) * 0.3;
+              tent.rotation.z = Math.cos(t * 1.2 + tent.userData.tentaclePhase) * 0.1;
+            }
+          });
+        }
+        if (child.userData.isEye) {
+          const lookX = Math.sin(t + child.userData.lookPhase) * 0.3;
+          const lookY = Math.cos(t * 0.7 + child.userData.lookPhase) * 0.3;
+          if (child.children[1]) {
+            child.children[1].position.x = lookX;
+            child.children[1].position.y = lookY;
+          }
+        }
+        if (child.userData.isFlame && child.material) {
+          child.scale.y = 1 + Math.sin(t * 10) * 0.3;
+          child.material.opacity = 0.7 + Math.sin(t * 8) * 0.3;
+        }
+        if (child.userData.isMetal && child.geometry) {
+          const pos = child.geometry.attributes.position;
+          for (let i = 0; i < pos.count; i++) {
+            const origY = pos.getY(i);
+            pos.setY(i, origY + Math.sin(t * 2 + pos.getX(i)) * 0.003);
+          }
+          pos.needsUpdate = true;
+        }
+        // 轨道运动（渐变流体球等）
+        if (child.userData.isOrbit) {
+          const p = child.userData.floatPhase;
+          const r = child.userData.orbitRadius;
+          const s = child.userData.orbitSpeed;
+          child.position.x = Math.cos(t * s + p) * r;
+          child.position.z = Math.sin(t * s + p) * r;
+          child.position.y = Math.sin(t * s * 2 + p) * 2;
+          // 缓慢脉冲缩放
+          const sc = 1 + Ease.breathe(t + p, 0.5) * 0.15;
+          child.scale.setScalar(sc);
+        }
+        // 子元素动画
+        if (child.children && child.children.length > 0) {
+          child.children.forEach(subChild => {
+            if (subChild.userData.rotSpeed) {
+              subChild.rotation.y += subChild.userData.rotSpeed;
+              subChild.rotation.x += subChild.userData.rotSpeed * 0.5;
+            }
+          });
+        }
+      });
+
+      // 环境动画
+      environmentGroup.children.forEach(child => {
+        if (child.userData.isAurora && child.geometry) {
+          const pos = child.geometry.attributes.position;
+          for (let i = 0; i < pos.count; i++) {
+            const x = pos.getX(i);
+            const wave = Math.sin(x * 0.05 + t + child.userData.phase) * 2;
+            pos.setZ(i, wave);
+          }
+          pos.needsUpdate = true;
+        }
+        if (child.userData.isLightning) {
+          // 随机闪电
+          if (Math.random() < 0.005) {
+            child.intensity = 3;
+            setTimeout(() => { child.intensity = 0; }, 100);
+            setTimeout(() => { child.intensity = 2; }, 200);
+            setTimeout(() => { child.intensity = 0; }, 300);
+          }
+        }
+      });
+
+      composer.render();
+    }
+
+    // 初始化默认风格
+    applyStyle(STYLES[0], true);
+    animate();
+
+    // ==================== UI交互 ====================
+    const pullBtn = document.getElementById('pull-btn');
+    const cardPanel = document.getElementById('card-panel');
+    const card = document.getElementById('card');
+    const continueBtn = document.getElementById('continue-btn');
+    const flash = document.getElementById('flash');
+    const hint = document.getElementById('hint');
+
+    function getRandomStyle() {
+      const weights = { SSR: 3, SR: 15, R: 45, N: 37 };
+      const pool = [];
+      STYLES.forEach(s => {
+        const w = weights[s.rarity] || 20;
+        for (let i = 0; i < w; i++) pool.push(s);
+      });
+      return pool[Math.floor(Math.random() * pool.length)];
+    }
+
+    function showCard(style) {
+      // 更新卡牌内容
+      document.getElementById('card-rarity').textContent = style.rarity;
+      document.getElementById('card-rarity').className = 'card-rarity ' + style.rarity.toLowerCase();
+      document.getElementById('card-icon').textContent = style.icon;
+      document.getElementById('card-name').textContent = style.name;
+      document.getElementById('card-name-cn').textContent = style.nameCN;
+      document.getElementById('card-desc').textContent = style.desc;
+      document.getElementById('card-tags').innerHTML = style.tags.map(t => `<span class="card-tag">${t}</span>`).join('');
+
+      const cardFront = document.getElementById('card-front');
+      cardFront.className = 'card-face card-front ' + style.rarity.toLowerCase();
+
+      // 重置卡牌状态
+      card.classList.remove('flipped');
+
+      // 显示卡牌面板
+      cardPanel.classList.add('show');
+
+      // 延迟翻转
+      setTimeout(() => {
+        card.classList.add('flipped');
+        // 显示继续按钮
+        setTimeout(() => {
+          continueBtn.classList.add('show');
+        }, 800);
+      }, 300);
+    }
+
+    function pull() {
+      if (isPulling) return;
+      isPulling = true;
+
+      hint.classList.add('hidden');
+      pullBtn.classList.add('hidden');
+      document.getElementById('current-style').classList.remove('show');
+
+      // 1. 相机推近
+      startPullCamera();
+
+      // 2. 旧场景消散
+      startTransition();
+
+      // 3. 延迟后创建新场景
+      const style = getRandomStyle();
+      setTimeout(() => {
+        // 闪光效果
+        flash.className = 'show ' + style.rarity.toLowerCase();
+        setTimeout(() => flash.className = '', 400);
+
+        // 应用新风格（此时 transitionState 已进入 build 阶段）
+        applyStyle(style);
+      }, 500);
+
+      // 4. 显示卡牌
+      setTimeout(() => showCard(style), 1200);
+    }
+
+    function confirmPull() {
+      pullCount++;
+      document.getElementById('pull-count').textContent = pullCount;
+
+      // 添加到收藏
+      if (!collection.find(s => s.id === currentStyle.id)) {
+        collection.push(currentStyle);
+        updateCollection();
+      }
+
+      // 隐藏卡牌
+      cardPanel.classList.remove('show');
+      continueBtn.classList.remove('show');
+
+      // 相机返回
+      startReturnCamera();
+
+      // 显示抽取按钮
+      setTimeout(() => {
+        pullBtn.classList.remove('hidden');
+        isPulling = false;
+      }, 500);
+    }
+
+    function updateCollection() {
+      const el = document.getElementById('collection');
+      el.innerHTML = collection.map(s => `
+        <div class="collection-item ${s.rarity.toLowerCase()}"
+             onclick="viewStyle('${s.id}')"
+             title="${s.nameCN}"
+             style="border-color:${s.colors.accent};">
+          ${s.icon}
+        </div>
+      `).join('');
+      document.getElementById('collected-count').textContent = collection.length;
+    }
+
+    // 查看收藏的风格
+    window.viewStyle = (id) => {
+      const style = STYLES.find(s => s.id === id);
+      if (style && !isPulling) {
+        applyStyle(style);
+        showCard(style);
+        pullBtn.classList.add('hidden');
+      }
+    };
+
+    pullBtn.addEventListener('click', pull);
+    continueBtn.addEventListener('click', confirmPull);
+
+    // 窗口大小调整
+    window.addEventListener('resize', () => {
+      camera.aspect = innerWidth / innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(innerWidth, innerHeight);
+      composer.setSize(innerWidth, innerHeight);
+    });
+
+    // ==================== URL参数预览 ====================
+    function checkUrlPreview() {
+      const hash = location.hash;
+      if (hash.startsWith('#preview=')) {
+        const id = hash.replace('#preview=', '');
+        const style = STYLES.find(s => s.id === id);
+        if (style) {
+          hint.classList.add('hidden');
+          applyStyle(style);
+          showCard(style);
+          pullBtn.classList.add('hidden');
+        }
+      }
+    }
+    checkUrlPreview();
+    window.addEventListener('hashchange', checkUrlPreview);
+  </script>
+</body>
+</html>
